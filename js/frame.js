@@ -38,6 +38,8 @@ define((require, exports, module) => {
     focused: Field((node, current, past) => {
       if (current) {
         node.focus();
+      } else {
+        node.blur();
       }
     }),
     onAsyncScroll: Event("mozbrowserasyncscroll"),
@@ -175,7 +177,8 @@ define((require, exports, module) => {
     render({id, url, selected, zoom, focused}) {
       // Do not render frame if there is no url to load.
       if (!url) return null;
-      return IFrame({className: "frame box flex-1",
+      return IFrame({className: "frame box flex-1 tile" +
+                                (selected && focused ? " entered" : ""),
                      key: `frame-${id}`,
                      hidden: !selected,
                      remote: true,

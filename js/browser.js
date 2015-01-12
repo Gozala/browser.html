@@ -9,7 +9,7 @@ define((require, exports, module) => {
   const {html} = require("js/virtual-dom");
   const {FrameDeck} = require("js/frame-deck");
   const {TabNavigator} = require("js/tab-navigator");
-  const {NavigationPanel} = require("js/navigation-panel");
+  const {NavigationPanel} = require("js/tiles");
   const {Keyboard} = require("js/keyboard");
   const {Theme} = require("js/theme");
 
@@ -135,7 +135,6 @@ define((require, exports, module) => {
 Backing up stored session to ${backup} & resuming with blank session instead.`);
       }
     },
-
     mounted(target, options) {
       target.ownerDocument.defaultView.addEventListener("beforeunload", this.onUnload);
       target.ownerDocument.body.setAttribute("os", options.OS);
@@ -213,7 +212,12 @@ Backing up stored session to ${backup} & resuming with blank session instead.`);
 
           Theme({name: theme}),
 
+
+
+          /*
           ...(tabStyle != "vertical" ? [tabNavigator] : []),
+          */
+
 
           NavigationPanel({
             key: "navigation-panel",
@@ -222,6 +226,7 @@ Backing up stored session to ${backup} & resuming with blank session instead.`);
             resetInput: this.resetInput,
             resetSearch: this.resetSearch,
           }),
+          /**/
 
           html.div({className: "hbox flex-1",
                     key: "frame-deck",

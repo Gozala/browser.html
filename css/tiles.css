@@ -1,0 +1,14 @@
+.tile {
+  transition: all .2s ease-in-out;
+}
+
+.tile.entered {
+  transform: scale(1);
+  transform-origin: top left;
+}
+
+.tile:not(.entered) {
+  transform: scale(0.25);
+  transform-origin: top left;
+  margin: 10px;
+}
