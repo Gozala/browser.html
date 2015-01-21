@@ -65,14 +65,14 @@ define((require, exports, module) => {
     updateInput(input) {
       this.patch({frame: {input}});
     },
-    updateURL(url) {
-      this.patch({frame: {url}});
-    },
     navigateTo(input) {
       if (input) {
         this.patch({frame: {input: null,
                             focused: true,
                             url: readInputURL(input)}});
+      } else {
+        this.patch({frame: {input: null,
+                            focused: true}});
       }
     },
     focusInput() {
@@ -168,7 +168,9 @@ define((require, exports, module) => {
                     className: "identity"}),
           html.input({key: "url-input",
                       className: "urlinput flex-1",
-                      value: frame && (frame.input !== null ? frame.input : frame.url),
+                      value: frame && (frame.input !== null ? frame.input :
+                                       frame.location ? frame.location :
+                                       frame.url),
                       placeholder: "Search or enter address",
                       tabIndex: 0,
                       autoFocus: true,

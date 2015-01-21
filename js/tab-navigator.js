@@ -31,10 +31,24 @@ define((require, exports, module) => {
     },
 
     render({frame, tabStyle}) {
-      const { id, selected, title, favicon, loading, url } = frame;
+      const { id, selected, title, icons, loading, url } = frame;
       const classList = ["tab", "hbox", "align", "center",
                          loading ? "loading" : "loaded",
                          selected ? "selected" : ""];
+      const favicon = icons && Object.keys(icons).reduce((result, href) => {
+        const icon = icons[href]
+        if (!result) {
+          return icon;
+        }
+        else if (icon.rel == "icon" || icon.rel === "shortcut icon") {
+          return icon
+        }
+        else if (result.rel == "icon" || result.rel === "shortcut icon") {
+          return result
+        } else {
+          return result.size > icon.size ? icon : result
+        }
+      }, null);
 
       return html.div({
         className: classList.join(" "),
@@ -45,7 +59,7 @@ define((require, exports, module) => {
                   className: "throbber"}),
         html.img(Object.assign({key: "icon",
                                 className: "favicon"},
-                               favicon ? {src: favicon} : {src: null})),
+                               favicon ? {src: favicon.href} : {src: null})),
         html.div({key: "title",
                   className: "hbox title title-wrapper"}, [
           html.span({className: "title"},

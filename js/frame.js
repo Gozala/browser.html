@@ -8,15 +8,15 @@ define((require, exports, module) => {
   const {Component} = require("js/component");
   const {html} = require("js/virtual-dom");
   const {Element, Option, Attribute, Field, Event } = require("js/element");
+  const {domRequestToPromise} = require("js/util/cast-promise");
 
   const IFrame = Element("iframe", {
     remote: Option("remote"),
     browser: Option("mozbrowser"),
     allowFullScreen: Option("mozallowfullscreen"),
     flex: Attribute("flex"),
-    location: Field((node, current, past) => {
-      if (current != past && current != node.dataset.currentURI) {
-        console.log(current, past, node.dataset.currentURI, node.readyState)
+    url: Field((node, current, past) => {
+      if (current != past) {
         node.src = current;
       }
     }),
@@ -48,6 +48,9 @@ define((require, exports, module) => {
     onLoadStart: Event("mozbrowserloadstart"),
     onLoadEnd: Event("mozbrowserloadend"),
     onIconChange: Event("mozbrowsericonchange"),
+    onUserActivityDone: Event("mozbrowseractivitydone"),
+    onVisibilityChange: Event("mozbrowservisibilitychange"),
+    onMetaChange: Event("mozbrowsermetachange"),
     onLocationChange: Event("mozbrowserlocationchange"),
     onSecurityChange: Event("mozbrowsersecuritychange"),
     onTitleChange: Event("mozbrowsertitlechange"),
@@ -64,8 +67,10 @@ define((require, exports, module) => {
         focused: false,
         input: null,
         url: null,
+        location: null,
         title: null,
-        favicon: null,
+        icons: null,
+        backgroundColor: null,
         securityState: "insecure",
         securityExtendedValidation: false,
         canGoBack: false,
@@ -78,7 +83,8 @@ define((require, exports, module) => {
     },
 
     // Events
-    onScroll() {
+    onScroll(event) {
+
     },
     onAuthentificate() {
     },
@@ -94,8 +100,7 @@ define((require, exports, module) => {
     },
     onContextMenu() {
     },
-    onError(event) {
-      console.error(event);
+    onLoadError(event) {
       //this.patch({loading: false});
     },
     onSecurityChange({detail}) {
@@ -106,29 +111,43 @@ define((require, exports, module) => {
     },
     onLoadStart(event) {
       this.patch({loading: true,
-                  favicon: null,
+                  icons: null,
                   title: null,
+                  location: null,
+                  backgroundColor: null,
                   securityState: "insecure",
                   securityExtendedValidation: false,
                   canGoBack: false,
                   canGoForward: false});
     },
     onLoadEnd(event) {
-      this.patch({loading: false});
+      this.patch({loading: false,
+                  start: event.timeStamp,
+                  backgroundColor: event.detail.backgroundColor});
+
+      this.captureScreenshot(event.target);
+
+      if (this.props.onLoadEnd) {
+        this.props.onLoadEnd(this.props);
+      }
     },
-    onTitleChange({detail}) {
+    onTitleChange(event) {
+      const {detail} = event;
       this.patch({title: detail});
     },
-    onLocationChange({detail, target}) {
-      // Unfortunately changing iframe src to the value that matches
-      // currently loaded document url causes a reload. To workaround
-      // this we store currentURI into dataset of the iframe so we
-      // can avoid reload if url update is caused by location change.
-      target.dataset.currentURI = detail;
-      this.patch({url: detail, input: null});
+    onLocationChange(event) {
+      const {detail, target} = event;
+      this.patch({location: detail, input: null});
     },
-    onIconChange({detail}) {
-      this.patch({favicon: detail.href});
+    onIconChange(event) {
+      const {detail} = event;
+      const icons = Object.assign({}, this.props.icons);
+      icons[detail.href] = detail;
+
+      this.patch({icons});
+    },
+    onMetaChange(event) {
+      console.log(event);
     },
 
     onCanGoBack({target: {result}}) {
@@ -144,6 +163,31 @@ define((require, exports, module) => {
     onBlur() {
       this.patch({focused: false});
     },
+
+    onScreenshot(screenshot) {
+      this.patch({screenshot});
+
+      if (this.props.onScreenshot) {
+        this.props.onScreenshot(this.props);
+      }
+    },
+
+    onScreenshotError(error) {
+      console.error(error);
+    },
+
+    captureScreenshot(target, options={}) {
+      const maxWidth = options.maxWidth || target.offsetWidth;
+      const maxHeight = options.maxHeight || target.offsetHeight;
+      const mimeType = options.mimeType || "image/jpeg";
+      const request = target.getScreenshot(maxWidth, maxHeight, "image/jpeg");
+      const promise = domRequestToPromise(request);
+
+      promise.
+        catch(this.onScreenshotError).
+        then(content => this.onScreenshot({maxWidth, maxHeight, content}));
+    },
+
     onAction({target, action}) {
       if (!target) return;
       if (action === "reload") {
@@ -157,6 +201,9 @@ define((require, exports, module) => {
       }
       if (action === "stop") {
         target.stop();
+      }
+      if (action === "screenshot") {
+        this.captureScreenshot(target);
       }
 
       this.patch({action: null});
@@ -183,7 +230,7 @@ define((require, exports, module) => {
                      allowFullScreen: true,
                      flex: 1,
                      zoom, focused,
-                     location: url,
+                     url: url,
 
                      onBlur: this.onBlur,
                      onFocus: this.onFocus,
@@ -191,15 +238,17 @@ define((require, exports, module) => {
                      onClose: this.onClose,
                      onOpenWindow: this.onOpen,
                      onContextMenu: this.onContextMenu,
-                     onError: this.onError,
+                     onError: this.onLoadError,
                      onLoadStart: this.onLoadStart,
                      onLoadEnd: this.onLoadEnd,
+                     onMetaChange: this.onMetaChange,
                      onIconChange: this.onIconChange,
                      onLocationChange: this.onLocationChange,
                      onSecurityChange: this.onSecurityChange,
                      onTitleChange: this.onTitleChange,
                      onPrompt: this.onPrompt,
-                     onAuthentificate: this.onAuthentificate
+                     onAuthentificate: this.onAuthentificate,
+                     onScreenshot: this.onScreenshot
                     });
     }
   });

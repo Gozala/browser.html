@@ -12,6 +12,7 @@ define((require, exports, module) => {
   const {NavigationPanel} = require("js/navigation-panel");
   const {Keyboard} = require("js/keyboard");
   const {Theme} = require("js/theme");
+  const {History} = require("js/history");
 
   const focusInput = input =>
     Object.assign({}, input, {focused: true});
@@ -84,9 +85,12 @@ define((require, exports, module) => {
       // Abort if only one frame left.
       if (frames.length > 1) {
         const index = frames.findIndex(frame => frame.id == id);
+        const removed = frames[index];
         frames.splice(index, 1);
         const selected = frames[index] || frames[frames.length - 1];
         this.patch({frames: selectFrame(frames, selected.id)});
+
+        this.onVisitEnd(removed);
       }
     },
     resetFrame(state) {
@@ -136,6 +140,39 @@ Backing up stored session to ${backup} & resuming with blank session instead.`);
       }
     },
 
+    mount() {
+      this.history = new History({
+        onTopSitesChange: this.onTopSitesChange
+      });
+    },
+
+    onScreenshot(frame) {
+      console.log("screenshot", frame);
+      this.history.updateScreenshots(frame, frame.screenshot);
+    },
+    // Handler invoked when a frame loading ends with the frame data.
+    onVisitStart(frame) {
+      if (frame.location) {
+        const {icons, backgroundColor, title, start, device} = frame;
+        this.history.beginVisit({
+          url: frame.location,
+          icons, backgroundColor, title, start, device
+        });
+      }
+    },
+    onVisitEnd(frame) {
+      if (frame.location) {
+        this.history.endVisit({
+          url: frame.location,
+          start: frame.start,
+          end: Date.now()
+        });
+      }
+    },
+    onTopSitesChange(record) {
+      console.log("top sites change", record);
+    },
+
     mounted(target, options) {
       target.ownerDocument.defaultView.addEventListener("beforeunload", this.onUnload);
       target.ownerDocument.body.setAttribute("os", options.OS);
@@ -151,6 +188,7 @@ Backing up stored session to ${backup} & resuming with blank session instead.`);
       this.saveSession();
     },
     render(options) {
+      window.state = options;
        const {frames, input, search, keysPressed,
               isPrivileged, theme, tabStyle} = options;
        //console.log(options)
@@ -237,7 +275,10 @@ Backing up stored session to ${backup} & resuming with blank session instead.`);
               resetFrame: this.resetFrame,
               selectFrame: this.selectFrame,
               clearSession: this.clearSession,
-              saveSession: this.saveSession
+              saveSession: this.saveSession,
+
+              onFrameScreenshot: this.onScreenshot,
+              onFrameLoaded: this.onVisitStart
             }),
 
             ...(tabStyle == "vertical" ? [tabNavigator] : []),
