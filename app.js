@@ -12,11 +12,15 @@
 require.config({
   scriptType: 'text/javascript;version=1.8',
   paths: {
-    "react": "lib/react/react@0.12.1"
+    "react": "lib/react/react@0.12.1",
+    "pouchdb": "lib/pouchdb/pouchdb-3.2.1.min"
   },
   shim: {
     "react": {
       exports: "React"
+    },
+    "pouchdb": {
+      exports: "PouchDB"
     }
   }
 });
