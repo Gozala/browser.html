@@ -26,9 +26,9 @@ require.config({
 });
 
 
-window.OS = navigator.appVersion.contains('Win') ? "windows" :
-            navigator.appVersion.contains("Mac") ? "osx" :
-            navigator.appVersion.contains("X11") ? "linux" :
+window.OS = navigator.platform.contains('Win') ? "windows" :
+            navigator.platform.contains("Mac") ? "osx" :
+            navigator.platform.contains("X11") ? "linux" :
             "unknown";
 require(['js/component', 'js/browser'], ({render}, {Browser}) => {
   // IS_PRIVILEGED is false if Firefox.html runs in a regular browser,
