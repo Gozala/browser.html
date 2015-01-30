@@ -2,29 +2,37 @@ define((require, exports, module) => {
 
 "use strict";
 
+const Step = (task, handler="next") => result => {
+  try {
+    return task[handler](result);
+  } catch (error) {
+    return {error}
+  }
+}
+
+
 const spawn = function(routine, ...params) {
   return new Promise((resolve, reject) => {
     const task = routine.call(this, ...params);
-    const raise = error => task.throw(error);
+    const raise = Step(task, "throw")
+    const next = Step(task, "next");
 
-    const step = data => {
-      try {
-        const {done, value} = task.next(data);
-        if (done) {
-          resolve(value);
-        }
-        else if (value.then) {
-          value.then(step, raise);
-        }
-        else {
-          step(value)
-        }
-      } catch (error) {
+    const resume = ({done, error, value}) => {
+      if (error) {
         reject(error);
+      }
+      else if (done) {
+        resolve(value);
+      }
+      else {
+        Promise.
+          resolve(value).
+          then(next, raise).
+          then(resume);
       }
     };
 
-    step();
+    resume(next());
   });
 };
 exports.spawn = spawn;

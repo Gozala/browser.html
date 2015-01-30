@@ -5,65 +5,90 @@ define((require, exports, module) => {
 const PouchDB = require("pouchdb");
 const {spawn, async} = require("./util/task");
 
+// PouchDB has a sepcial field `_id` for identifing records
+// and `_rev` for identifiying revisitions. We will refer to
+// those properties as `[PouchDB.id]` & `[PouchDB.revision]`
+// instead.
+PouchDB.id = "_id";
+PouchDB.revision = "_rev";
 
-
+// Shortcut for Object.assign.
 const assign = Object.assign;
 
+// Bunch of times we will be creating an empty objcets
+// that will never get mutated, to avoid generating more
+// work for GC we will reuse `EMPTY` frozen objcet in those
+// cases.
 const EMPTY = Object.freeze(Object.create(null));
 exports.EMPTY = EMPTY;
 
-const nil = new String("nil");
-exports.nil = nil;
+// Helper function to convert string to a ArrayBuffer instance.
+const stringToBuffer = string => new TextEncoder().encode(string);
+// Helper function to create cryptographic hash of the content.
+const hash = string => crypto.subtle.digest("SHA-256",
+                                            stringToBuffer(string)).then(btoa);
 
-const Class = descriptor => {
-  const constructor = Object.hasOwnProperty.call(descriptor, "constructor") ?
-                      descriptor.constructor : function() {};
-  const __proto__ = (descriptor.extend || Object).prototype;
-  const statics = descriptor.static || EMPTY;
-  const prototype = assign(descriptor, {__proto__,
-                                        constructor,
-                                        static: void(0),
-                                        extend: void(0)});
-  return assign(constructor, statics, {prototype});
+// Record is a base class for representing records stored in the data base.
+// Most record types will copy it's static methods or substitute some of them.
+
+const Record = function(options) {
+  assign(this, Record.defaults(this), options);
+}
+Record.Type = () => function(options) { Record.call(this, options) };
+Record.id = record => record[PouchDB.id];
+Record.defaults = record => {
+  const {defaults} = record.constructor;
+  return defaults ? defaults(record): EMPTY;
 };
-exports.Class = Class;
+Record.stub = record => {
+  return assign({[PouchDB.id]: record[PouchDB.id], stub: true},
+                Record.toStub(record));
+};
+Record.toStub = record => {
+  const {toStub} = record.constructor;
+  return toStub ? toStub(record) : EMPTY;
+};
+Record.merge = (record, ...patches) => {
+  return new record.constructor(assign({}, record, ...patches));
+}
+Record.type = record => record.constructor.type;
+Record.hash = record => record.constructor.hash(record);
+Record.construct = async(function*(Type, options) {
+  const record = new Type(options);
 
-const pouchdbID = Symbol("pouchdb/id");
-const Record = Class({
-  get _id() {
-    this._id = this.constructor.id(this);
-    return this._id;
-  },
-  set _id(value) {
-    Object.defineProperty(this, "_id", {
-      enumerable: true,
-      configurable: true,
-      writable: true,
-      value: value
-    });
-  },
-  static: {
-    id({_id}) {
-      return _id;
-    },
-    stub(record) {
-      return {_id: this.id(record)}
-    },
-    empty() {
-      return new this()
-    },
-    patch(record) {
-      return {[record._id]: record}
-    },
-    merge(record, ...deltas) {
-      return assign(this.empty(),
-                    record,
-                    ...deltas);
-    },
-
+  // If options passed do not include id we need to set
+  // it up. This task may be async as calculating record hash
+  // maybe async.
+  if (!record[PouchDB.id]) {
+    const type = Record.type(record);
+    const hash = yield Record.hash(record);
+    record[PouchDB.id] = `${type}/${hash}`;
+  }
+  return record;
+});
+Record.cast = (record, type) => {
+  record.__proto__ = type.prototype;
+  return record;
+}
+Record.write = (record, db, config) => {
+  db.put(record, config);
+};
+Record.read = async(function*(id, constructor, db, config) {
+  try {
+    const record = yield db.get(id);
+    return Record.cast(record, constructor);
+  } catch (error) {
+    if (error.status != 404) {
+      throw error
+    }
+    return new constructor({[PouchDB.id]: id});
   }
 });
-exports.Record = Record;
+Record.edit = async(function*(id, type, edit, db, config) {
+  const current = yield Record.read(id, type, db);
+  const edited = yield edit(current);
+  return Record.write(edited, db, config);
+});
 
 
 /*
@@ -94,7 +119,7 @@ in the future).
     }
   },
   quotes: {
-    "quote/1421359011208": {_id: "quote/1421359011208"}
+    "quote/W29iamVjdCBBcnJheUJ1ZmZlcl0=": {_id: "quote/W29iamVjdCBBcnJheUJ1ZmZlcl0="}
   },
   tags: {
     "tag/haskell": {_id: "tag/haskell", name: "haskell"},
@@ -103,28 +128,16 @@ in the future).
 }
 */
 
-const Visits = Class({
-  extend: Record,
+const Visit = Record.Type();
+Visit.type = "visit";
+Visit.defaults = () => ({start: null,
+                         end: null,
+                         device: "Desktop"});
+Visit.toStub = record => ({start: record.start,
+                           end: record.end,
+                           device: record.device});
 
-  start: null,
-  end: null,
-  device: "",
-
-  static: {
-    id({start}) {
-      return `visit/${start}`
-    },
-    empty: Record.empty,
-    merge: Record.merge,
-    update(visits, visit) {
-      const id = this.id(visit);
-      return this.merge(visits, {
-        [id]: assign({}, visits[id] || EMPTY, visit, {_id: id})
-      })
-    }
-  }
-});
-exports.Visits = Visits;
+Visit.hash = record => record.start;
 
 /**
 {
@@ -132,146 +145,92 @@ exports.Visits = Visits;
   description: "Haskell programming language",
   name: "haskell",
   items: {
-    "quote/1421359011208": {_id: "quote/1421359011208"},
+    "quote/W29iamVjdCBBcnJheUJ1ZmZlcl0=": {_id: "quote/W29iamVjdCBBcnJheUJ1ZmZlcl0="},
     "site/http://learnyouahaskell.com": {_id: "site/http://learnyouahaskell.com"}
   }
 }
 **/
 
-const Tag = Class({
-  extend: Record,
+const Tag = Record.Type();
+Tag.type = "tag";
+Tag.defaults = () => ({name: null,
+                       items: EMPTY});
+Tag.hash = record => record.name;
+Tag.toStub = record => {name: record.name};
+Tag.idFromName = name => `${Tag.type}/${name}`;
 
-  name: null,
-  items: EMPTY,
+Tag.addItem = (tag, item) => {
+  const items = assign({}, tag.items, {
+    [Record.id(item)]: Record.stub(item)
+  });
 
-  static: {
-    empty: Record.empty,
-    merge: Record.merge,
-    id({name}) {
-      return `tag/${name}`
-    },
-    stub({name}) {
-      return {_id: this.id({name}), name};
-    },
-    addItem(tag, item) {
-      const id = item.constructor.id(item);
-      this.merge(tag, {
-        items: assign({}, tag.items, {
-          [id]: item.constructor.stub(item)
-        })
-      });
-    },
-    removeItem(tag, item) {
-      const id = item.constructor.id(item);
-      const items = assign({}, tag.items);
-      delete items[id];
-      this.merge(tag, {items});
-    }
-  }
-});
+  return Record.merge(tag, {items})
+};
+Tag.removeItem = (tag, item) => {
+  const items = assign({}, tag.items);
+  delete items[Record.id(item)];
+  return Record.merge(tag, {items});
+};
 exports.Tag = Tag;
 
-const TaggedItem = Class({
-  static: {
-    /**
-    Updates `item.tags` by adding / removing tags passed
-    in `delta`.
-    **/
-    updateTags(delta) {
-      return item => {
-        const tags = assign({}, item.tags);
-        for (let id of Object.keys(delta)) {
-          const tag = delta[id];
-          if (tag === nil) {
-            delete tags[id]
-          }
-          else {
-            tags[id] = Tag.stub(tag);
-          }
-        }
-
-        return this.merge(item, {tags});
-      }
+const TaggedItem = Record.Type();
+// Updates `item.tags` by adding / removing tags passed
+// in `delta`.
+TaggedItem.updateTags = patch => item => {
+  const tags = assign({}, item.tags);
+  for (let id of Object.keys(patch)) {
+    const tag = patch[id];
+    if (tag == null) {
+      delete tags[id];
+    } else {
+      tags[id] = Record.stub(tag);
     }
   }
-});
-exports.TaggedItem = TaggedItem;
+};
 
-const Site = Class({
-  extend: Record,
 
-  url: null,
-  title: "",
-  icons: EMPTY,
+const Site = Record.Type();
+Site.type = "site";
+Site.frequency = site => Object.keys(site.visits).length;
+Site.defaults = () => ({
   backgroundColor: null,
+  title: "",
+  url: null,
+  icons: EMPTY,
   visits: EMPTY,
   quotes: EMPTY,
-  tags: EMPTY,
-
-  static: {
-    merge: Record.merge,
-    empty() {
-      return assign(new this(), {
-        icons: EMPTY,
-        visits: EMPTY,
-        quotes: EMPTY,
-        tags: EMPTY
-      })
-    },
-    id({url}) {
-      return `site/${url}`
-    },
-    frequency(site) {
-      return Object.keys(site.visits).length;
-    },
-    beginVisit({icons, url, backgroundColor, title, start, end, device}) {
-      return (site=this.empty()) => this.merge(site, {
-        url, title, backgroundColor,
-        icons: assign({}, site.icons, icons),
-        visits: Visits.update(site.visits, {start, end, device})
-      });
-    },
-    endVisit(visit) {
-      return site => this.merge(site, {
-        visits: Visits.update(site.visits, visit)
-      });
-    },
-    updateScreenshots(...screenshots) {
-      return site => {
-        const patch = {}
-        for (let screenshot of screenshots) {
-          const {maxWidth, maxHeight, content} = screenshot;
-          const key = `${maxWidth}x${maxHeight}.screenshot`;
-          patch[key] = {content_type: content.type, data: content};
-        }
-
-        return this.merge(site, {
-          _attachments: assign({}, site._attachments || EMPTY, patch)
-        })
-      }
-    },
-    updateTags: TaggedItem.updateTags,
-
-    updateTop(site, limit) {
-      // On initial run db won't contain `top/sites` document there for
-      // top will be void. To handle initial case properly we provide a
-      // empty default.
-      return (top={_id: "top/sites", sites: EMPTY}) => {
-        const sites = assign({}, top.sites, {[Site.id(site)]: site});
-        const ids = Object.keys(sites);
-        if (ids.length > limit) {
-          const scores = ids.map(id => Site.frequency(sites[id]));
-          const min = Math.min(...scores);
-          const id = ids.indexOf(scores.indexOf(min));
-          delete sites[id];
-        }
-
-        return Object.assign({}, top, {sites});
-      }
-    }
-  }
+  tags: EMPTY
 });
-exports.Site = Site;
+Site.idFromURL = url => `${Site.type}/${url}`;
+Site.visit = (site, visit) => {
+  const id = Record.id(visit);
+  const visits = assign({}, site.visits, {
+    [Record.id(visit)]: Record.stub(visit)
+  });
+  return Record.merge(site, {visits});
+};
+Site.beginVisit = data => async(function*(site) {
+  const visit = yield Record.construct(Visit, data);
+  const icons = assign({}, site.icons, visit.icons);
+  const {url, title, backgroundColor} = visit;
+
+  return Record.merge(Site.visit(site, visit),
+                      {url, title, backgroundColor, icons});
+});
+Site.endVisit = data => async(function*(site) {
+  const visit = yield Record.construct(Visit, data);
+  return Site.visit(site, visit);
+});
+Site.updateScreenshots = (...screenshots) => site => {
+  const attachments = assign({}, site._attachments || EMPTY);
+  for (let screenshot of screenshots) {
+    const {maxWidth, maxHeight, content} = screenshot;
+    const key = `${maxWidth}x${maxHeight}.screenshot`;
+    attachments[key] = {content_type: content.type, data: content};
+  }
+
+  return Record.merge(site, {_attachments: attachments});
+};
 
 /**
 
@@ -282,8 +241,8 @@ have a following structure.
 
 
 {
-  _id: "quote/1421359011208",
-  quote: `If you say that <span class="fixed">a</span> is 5, you can't say it's something else later because you just said it was 5. What are you, some kind of liar? So in purely functional languages, a function has no side-effects. The only thing a function can do is calculate something and return it as a result.`
+  _id: "quote/W29iamVjdCBBcnJheUJ1ZmZlcl0=",
+  content: `If you say that <span class="fixed">a</span> is 5, you can't say it's something else later because you just said it was 5. What are you, some kind of liar? So in purely functional languages, a function has no side-effects. The only thing a function can do is calculate something and return it as a result.`
   site: {
     _id: "site/http://learnyouahaskell.com/introduction#about-this-tutorial",
     url: "http://learnyouahaskell.com/introduction#about-this-tutorial"
@@ -294,45 +253,54 @@ have a following structure.
 }
 **/
 
-const Quote = Class({
-  extend: Record,
 
+const Quote = Record.Type();
+Quote.type = "quote";
+Quote.defaults = () => ({
   site: null,
-  quote: null,
-  tags: EMPTY,
-
-
-  static: {
-    GUID: Date.now(),
-    empty: Record.empty,
-    merge: Record.merge,
-    id({_id}) {
-      return _id ? _id : `quote/${++this.GUID}`;
-    },
-    updateTags: TaggedItem.updateTags
-  }
+  content: null,
+  tags: EMPTY
 });
+Quote.hash = record => hash(record.content);
 exports.Quote = Quote;
+
+const Top = Record.Type();
+Top.type = "top";
+Top.hash = () => "sites";
+Top.defaults = () => ({sites: EMPTY});
+Top.sample = (site, limit) => top => {
+  const sites = assign({}, top.sites, {[Record.id(site)]: site});
+  const ids = Object.keys(sites);
+  while (ids.length > limit) {
+    const frequencies = ids.map(id => Site.frequency(sites[id]));
+    const min = Math.min(...frequencies);
+    const index = frequencies.indexOf(min);
+    const id = ids[index];
+
+    ids.splice(index, 1);
+    delete sites[id];
+  }
+  return Record.merge(top, {sites});
+};
 
 
 // History
+const History = function(options={}) {
+  this.onSiteChange = this.onSiteChange.bind(this);
+  this.onTopSitesChange = this.onTopSitesChange.bind(this);
 
-const History = Class({
-  constructor(options={}) {
-    this.onSiteChange = this.onSiteChange.bind(this);
-    this.onTopSitesChange = this.onTopSitesChange.bind(this);
+  this.options = assign({}, this.defaults(), options);
+  const {sitesStore, quotesStore, tagsStore,
+         sitesStoreName, quotesStoreName, tagsStoreName} = this.options;
 
-    this.options = assign({}, this.defaults(), options);
-    const {sitesStore, quotesStore, tagsStore,
-           sitesStoreName, quotesStoreName, tagsStoreName} = this.options;
+  this.sitesStore = sitesStore || new PouchDB(sitesStoreName);
+  this.quotesStore = quotesStore || new PouchDB(quotesStoreName);
+  this.tagsStore = tagsStore || new PouchDB(tagsStoreName);
 
-    this.sitesStore = sitesStore || new PouchDB(sitesStoreName);
-    this.quotesStore = quotesStore || new PouchDB(quotesStoreName);
-    this.tagsStore = tagsStore || new PouchDB(tagsStoreName);
-
-    this.setupChangeFeeds();
-    this.setupListeners();
-  },
+  this.setupChangeFeeds();
+  this.setupListeners();
+};
+History.prototype = {
   setupChangeFeeds() {
     this.topSiteChangeFeed = this.sitesStore.changes({
       since: "now",
@@ -357,116 +325,94 @@ const History = Class({
       sitesStoreName: "sites",
       quotesStoreName: "quotes",
       tagsStoreName: "tags",
-      topSiteLimit: 6
+      topSiteLimit: 6,
+      editQueue: {}
     }
   },
 
-  editRecord: async(function*(db, id, edit, config) {
-    let record;
-    try {
-      record = yield db.get(id);
-    } catch (error) {
-      if (error.status != 404) {
-        throw error;
-      }
-    }
-
-    return db.put(edit(record), config);
+  clear: async(function*() {
+    yield this.sitesStore.destroy();
+    yield this.quotesStore.destroy();
+    yield this.tagsStore.destroy();
   }),
 
-
-  editSite({url}, edit, config) {
-    return this.editRecord(this.sitesStore,
-                           Site.id({url}),
-                           edit,
-                           config);
-  },
-  editTag({name}, edit, config) {
-    return this.editRecord(this.tagsStore,
-                           Tag.id({name}),
-                           edit,
-                           config);
-  },
-  editQuote(quote, edit, config) {
-    return this.editRecord(this.quotesStore,
-                           Quote.id(quote),
-                           edit,
-                           config);
-  },
-  editTopSites(edit, config) {
-    return this.editRecord(this.sitesStore,
-                           "top/sites",
-                           edit,
-                           config);
+  scheduleEdit: async(function*(Type, id, edit, store) {
+    // wait for last scehduled edit to complete.
+    yield this.options.editQueue[id];
+    // then execute scheduled edit.
+    return Record.edit(id, Type, edit, store);
+  }),
+  // Edits per record are queued, to avoid data loss
+  // due to concurrent edits.
+  edit(Type, id, edit, store) {
+    return this.options.editQueue[id] = this.scheduleEdit(Type, id, edit, store);
   },
 
   beginVisit(visit) {
-    return this.editSite(visit, Site.beginVisit(visit));
+    return this.edit(Site,
+                     Site.idFromURL(visit.url),
+                     Site.beginVisit(visit),
+                     this.sitesStore);
   },
   endVisit(visit) {
-    return this.editSite(visit, Site.endVisit(visit));
+    return this.edit(Site,
+                     Site.idFromURL(visit.url),
+                     Site.endVisit(visit),
+                     this.sitesStore);
   },
-
-  readTopSites: async(function*() {
-    if (!this.options.topSites) {
-      try {
-        this.options.topSites = yield this.sitesStore.get("top/sites");
-      } catch (error) {
-        if (error.status == 404) {
-          this.options.topSites = {_id: "top/sites", sites: {}};
-        }
-        else {
-          throw error;
-        }
-      }
-    }
-  }),
-
-
-  updateTags: async(function*(item, tags) {
-    // Edit `item.tags` with a `tags` changes.
-    if (item.id.startsWith("site/")) {
-      yield this.editSite(item, Site.updateTags(tags))
-    }
-
-    if (item.id.startsWith("quote/")) {
-      yield this.editQuote(item, Quote.updateTags(tags))
-    }
-
-    // Edit each tag from given `tags` table.
-    for (let tag of Object.keys(tags)) {
-      const tag = tags[tagId];
-      if (tag === nil) {
-        yield this.editTag({name: tagId.replace("tags/", "")},
-                           Tag.removeItem(item));
-      } else {
-        yield this.editTag(tag, Tag.addItem(item));
-      }
-    }
-  }),
 
   updateScreenshots({url}, ...screenshots) {
-    return this.editSite({url},
-                         Site.updateScreenshots(...screenshots));
+    return this.edit(Site,
+                     Site.idFromURL(url),
+                     Site.updateScreenshots(...screenshots),
+                     this.sitesStore);
   },
 
+  updateTags: async(function*(item, tags) {
+    const id = Record.id(item);
+    const [Type, store] = id.startsWith("site/") ? [Site, this.sitesStore] :
+                          id.startsWith("quote/") ? [Quote, this.quotesStore] :
+                          null;
+
+    yield this.edit(Type, id, TaggedItem.updateTags(tags), store);
+
+    // Edit each tag from given `tags` table.
+    for (let tagId of Object.keys(tags)) {
+      const tag = tags[tagId];
+      const edit = tag == null ? Tag.removeItem(item) :
+                          Tag.addItem(item);
+      yield this.edit(Tag, tagId, edit, this.tagsStore);
+    }
+  }),
+
+
   onTopSitesChange({doc}) {
-    this.options.topSites = doc;
+    const top = Record.cast(doc, Top);
+    this.options.topSites = top;
     if (this.options.onTopSitesChange) {
-      this.options.onTopSitesChange(doc);
+      this.options.onTopSitesChange(top);
     }
   },
-  onSiteChange({doc: site}) {
-    this.editTopSites(Site.updateTop(site, this.options.topSiteLimit));
+  onSiteChange({doc}) {
+    const site = Record.cast(doc, Site);
+    this.edit(Top, "top/sites",
+              Top.sample(site, this.options.topSiteLimit),
+              this.sitesStore);
+
     if (this.options.onSiteChange) {
       this.options.onSiteChange(site);
     }
   },
 
-  onTagChange(change) {
-
+  onTagChange({doc}) {
+    const tag = Record.cast(doc, Tag);
+    if (this.options.onTagChange) {
+      this.options.onTagChange(tag);
+    }
   }
-});
+};
+
 exports.History = History;
+
 
 });
