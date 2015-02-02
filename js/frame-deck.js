@@ -84,24 +84,14 @@ define((require, exports, module) => {
     saveSession() {
       this.props.saveSession();
     },
-    onFrameLoaded(frame) {
-      if (this.props.onFrameLoaded) {
-        this.props.onFrameLoaded(frame);
-      }
-    },
-    onFrameScreenshot(frame) {
-      if (this.props.onFrameScreenshot) {
-        this.props.onFrameScreenshot(frame);
-      }
-    },
 
     renderFrame(frame) {
-      const {open, close, reset, onFrameLoaded, onFrameScreenshot} = this;
-      const {isPrivileged} = this.props;
+      const {open, close, reset} = this;
+      const {isPrivileged, onBeginVisit, onEndVisit,
+             onScreenshot} = this.props;
       const options = Object.assign({}, frame, {
         key: `frame-${frame.id}`,
-        onLoadEnd: onFrameLoaded,
-        onScreenshot: onFrameScreenshot,
+        onScreenshot, onBeginVisit, onEndVisit,
         open, close, reset, isPrivileged
       });
       return Frame(options);

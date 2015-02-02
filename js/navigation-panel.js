@@ -9,6 +9,7 @@ define((require, exports, module) => {
   const {Component} = require("js/component");
   const {html} = require("js/virtual-dom");
   const urlHelper = require("js/urlhelper");
+  const {InputField} = require("js/input");
 
   const makeSearchURL = input =>
     `https://search.yahoo.com/search?p=${encodeURIComponent(input)}`;
@@ -88,11 +89,8 @@ define((require, exports, module) => {
     onInputChange(event) {
       this.patch({frame: {input: event.target.value}});
     },
-
-    onInputKey(event) {
-      if (event.keyCode === 13) {
-        this.navigateTo(this.props.frame.input);
-      }
+    onInputSubmit(event) {
+      this.navigateTo(this.props.frame.input);
     },
     onInputFocus() {
       this.patch({input: {focused: true}});
@@ -101,10 +99,8 @@ define((require, exports, module) => {
       this.patch({input: {focused: false}});
     },
 
-    onSearchKey(event) {
-      if (event.keyCode === 13) {
-        this.navigateTo(this.props.search.query);
-      }
+    onSearchSubmit(event) {
+      this.navigateTo(this.props.search.query);
     },
     onSearchChange(event) {
       this.patch({search: {query: event.target.value}});
@@ -116,22 +112,6 @@ define((require, exports, module) => {
       this.patch({search: {focused: false}});
     },
 
-    // Focus and selection management can not be expressed declaratively
-    // at least not with reacts virtual dom. There for focus management
-    // and selection management is handled manually post update.
-    write(target, after, before) {
-      if (after.input.focused && !before.input.focused) {
-        const node = target.querySelector(".urlinput");
-        node.focus();
-        node.select();
-      }
-
-      if (after.search.focused && !before.search.focused) {
-        const node = target.querySelector(".searchinput");
-        node.focus();
-        node.select();
-      }
-    },
     render({frame, input, search}) {
       const classList = [
         "navbar", "toolbar", "hbox", "align", "center",
@@ -166,7 +146,7 @@ define((require, exports, module) => {
         }, [
           html.div({key: "identity",
                     className: "identity"}),
-          html.input({key: "url-input",
+          InputField({key: "url-input",
                       className: "urlinput flex-1",
                       value: frame && (frame.input !== null ? frame.input :
                                        frame.location ? frame.location :
@@ -175,12 +155,13 @@ define((require, exports, module) => {
                       tabIndex: 0,
                       autoFocus: true,
                       contextMenu: "url-context-menu",
+                      focused: input.focused,
 
+                      onFocus: this.onInputFocus,
+                      onBlur: this.onInputBlur,
                       onClick: this.focusInput,
                       onChange: this.onInputChange,
-                      onKeyDown: this.onInputKey,
-                      onFocus: this.onInputFocus,
-                      onBlur: this.onInputBlur}),
+                      onSubmit: this.onInputSubmit}),
           html.button({
             key: "reload-button",
             title: "Reload current page",
@@ -234,14 +215,15 @@ define((require, exports, module) => {
         }, [
           html.div({key: "search-selector",
                     className: "searchselector"}),
-          html.input({key: "search-input",
+          InputField({key: "search-input",
                       className: "searchinput",
                       value: search.query,
                       placeholder: "Yahoo",
+                      focused: search.focused,
 
                       onClick: this.focusSearch,
                       onChange: this.onSearchChange,
-                      onKeyDown: this.onSearchKey,
+                      onSubmit: this.onSearchSubmit,
                       onFocus: this.onSearchFocus,
                       onBlur: this.onSearchBlur})
         ]),

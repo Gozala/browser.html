@@ -55,6 +55,9 @@ define((require, exports, module) => {
         search: {focused: false, query: ""},
       }, Keyboard.keyboardDefaults());
     },
+    onError(error) {
+      console.error(error);
+    },
     selectFrame({id}) {
       const frames = selectFrame(this.props.frames, id);
       const selected = selectFrame(frames);
@@ -90,7 +93,7 @@ define((require, exports, module) => {
         const selected = frames[index] || frames[frames.length - 1];
         this.patch({frames: selectFrame(frames, selected.id)});
 
-        this.onVisitEnd(removed);
+        this.onEndVisit(removed);
       }
     },
     resetFrame(state) {
@@ -148,25 +151,26 @@ Backing up stored session to ${backup} & resuming with blank session instead.`);
 
     onScreenshot(frame) {
       console.log("screenshot", frame);
-      this.history.updateScreenshots(frame, frame.screenshot);
+      this.history.updateScreenshots({url: frame.location},
+                                     frame.screenshot).catch(this.onError);
     },
     // Handler invoked when a frame loading ends with the frame data.
-    onVisitStart(frame) {
+    onBeginVisit(frame) {
       if (frame.location) {
         const {icons, backgroundColor, title, start, device} = frame;
         this.history.beginVisit({
           url: frame.location,
           icons, backgroundColor, title, start, device
-        });
+        }).catch(this.onError)
       }
     },
-    onVisitEnd(frame) {
+    onEndVisit(frame) {
       if (frame.location) {
         this.history.endVisit({
           url: frame.location,
           start: frame.start,
           end: Date.now()
-        });
+        }).catch(this.onError);
       }
     },
     onTopSitesChange(record) {
@@ -277,8 +281,9 @@ Backing up stored session to ${backup} & resuming with blank session instead.`);
               clearSession: this.clearSession,
               saveSession: this.saveSession,
 
-              onFrameScreenshot: this.onScreenshot,
-              onFrameLoaded: this.onVisitStart
+              onScreenshot: this.onScreenshot,
+              onBeginVisit: this.onBeginVisit,
+              onEndVisit: this.onEndVisit
             }),
 
             ...(tabStyle == "vertical" ? [tabNavigator] : []),

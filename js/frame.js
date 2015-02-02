@@ -78,6 +78,19 @@ define((require, exports, module) => {
       };
     },
 
+    // Signals that visit of the page has ended.
+    endVisit() {
+      if (this.props.onEndVisit) {
+        this.props.onEndVisit(this.props);
+      }
+    },
+    // Signals that visit of the page has began.
+    beginVisit() {
+      if (this.props.onBeginVisit) {
+        this.props.onBeginVisit(this.props);
+      }
+    },
+
     patch(diff) {
       this.props.reset(Object.assign({}, this.props, diff));
     },
@@ -88,9 +101,11 @@ define((require, exports, module) => {
     },
     onAuthentificate() {
     },
-    onOpen({detail}) {
+    onOpen(event) {
+      event.preventDefault();
+      event.stopPropagation();
       if (this.props.open) {
-        this.props.open({url: detail});
+        this.props.open({url: event.detail.url});
       }
     },
     onClose() {
@@ -127,9 +142,7 @@ define((require, exports, module) => {
 
       this.captureScreenshot(event.target);
 
-      if (this.props.onLoadEnd) {
-        this.props.onLoadEnd(this.props);
-      }
+      this.beginVisit();
     },
     onTitleChange(event) {
       const {detail} = event;
@@ -147,7 +160,7 @@ define((require, exports, module) => {
       this.patch({icons});
     },
     onMetaChange(event) {
-      console.log(event);
+      this.patch({metadata: event.detail});
     },
 
     onCanGoBack({target: {result}}) {
@@ -191,12 +204,15 @@ define((require, exports, module) => {
     onAction({target, action}) {
       if (!target) return;
       if (action === "reload") {
+        this.endVisit();
         target.reload();
       }
       if (action === "goBack") {
+        this.endVisit();
         target.goBack();
       }
       if (action === "goForward") {
+        this.endVisit();
         target.goForward();
       }
       if (action === "stop") {
