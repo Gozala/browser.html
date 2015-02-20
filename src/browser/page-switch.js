@@ -15,8 +15,6 @@ define((require, exports, moudle) => {
   const readThumbnailURI = uri =>
     'none' && `url(/tiles/${url.getDomainName(uri)}.png)`;
 
-  const equals = x => y => x.equals(y)
-
   const Tab = Component(({items, item}) =>
     DOM.div({
       key: `tab-${item.get('id')}`,
@@ -25,11 +23,11 @@ define((require, exports, moudle) => {
       style: {
         backgroundImage: readThumbnailURI(item.get('location'))
       },
-      onMouseDown: event => select(items, equals(item)),
+      onMouseDown: event => select(items, item.get('id')),
       onMouseUp: event => {
         if (event.button == 1) {
           event.stopPropagation();
-          remove(items, equals(item));
+          remove(items, item.get('id'));
         }
       }
     }));

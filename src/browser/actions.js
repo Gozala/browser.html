@@ -11,7 +11,7 @@ define((require, exports, module) => {
   const {open} = require('./web-viewer/actions');
   // TODO: Should be `const {version} = require('package.json`);` instead but require.js
   // does not supports that.
-  const version = '0.0.0';
+  const version = '0.0.1';
 
 
   const makeSearchURL = input =>
@@ -42,11 +42,14 @@ define((require, exports, module) => {
     tabStrip: {
       isActive: false
     },
-    webViewers: [open({id: 0,
-                       zoom: 1,
-                       isSelected: true,
-                       isFocused: true,
-                       uri: 'https://github.com/mozilla/browser.html'})]
+    webViewers: {
+      selected: 0,
+      preview: 0,
+      items: [open({id: 0,
+                    zoom: 1,
+                    isFocused: true,
+                    uri: 'https://github.com/mozilla/browser.html'})]
+    }
   });
 
   // Reads stored session. Returns either immutable data for the

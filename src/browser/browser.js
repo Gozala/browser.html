@@ -17,8 +17,8 @@ define((require, exports, module) => {
          goBack, goForward, reload, stop} = require('./web-viewer/actions');
   const {focus, showTabStrip, hideTabStrip,
          writeSession, resetSession} = require('./actions');
-  const {selectedIndex, selectNext, selectPrevious,
-         remove, toggle, append, select} = require('./deck/actions');
+  const {indexOfSelected, selectNext,
+         selectPrevious, remove, append, select} = require('./deck/actions');
   const {readTheme} = require('./theme');
 
   const getOwnerWindow = node => node.ownerDocument.defaultView;
@@ -67,16 +67,17 @@ define((require, exports, module) => {
     'F5': reload
   });
 
-  const openTab = items => {
+  const openTab = deck => {
     const item = open();
-    return select(append(items, item), x => x == item);
+    return select(append(deck, item), item.get('id'));
   }
 
   // If closing viewer, replace it with a fresh one & select it.
   // This avoids code branching down the pipe that otherwise will
   // need to deal with 0 viewer & no active viewer case.
-  const closeTab = items =>
-    items.count() > 1 ? remove(items) : items.set(0, toggle(open()));
+  const closeTab = deck => deck.update(deck =>
+    deck.items.count() > 1 ? remove(deck, deck.get('selected')) :
+    remove(append(deck, open()), deck.get('selected')));
 
   const edit = edit => cursor => cursor.update(edit);
   const onDeckBinding = KeyBindings({
@@ -105,9 +106,9 @@ define((require, exports, module) => {
   // Browser is a root component for our application that just delegates
   // to a core sub-components here.
   const Browser = Component(immutableState => {
-    const index = selectedIndex(immutableState.get('webViewers'));
+    const index = indexOfSelected(immutableState.get('webViewers'));
     const webViewersCursor = immutableState.cursor('webViewers');
-    const selectedWebViewerCursor = webViewersCursor.cursor(index);
+    const selectedWebViewerCursor = webViewersCursor.cursor(['items', index]);
 
     const tabStripCursor = immutableState.cursor('tabStrip');
     const inputCursor = immutableState.cursor('input');

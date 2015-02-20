@@ -11,7 +11,7 @@ define((require, exports, module) => {
 
   const Deck = Item => Component(immutableState =>
       DOM.div(immutableState,
-              immutableState.items.map(Deck.Render(Item, immutableState))));
+              immutableState.items.get('items').map(Deck.Render(Item, immutableState))));
 
   Deck.Render = (Item, immutableState) => item => Item(Object.assign({}, immutableState, {
     key: `deck-item-${item.get('id')}`,

@@ -16,6 +16,8 @@ define((require, exports, module) => {
   const WebViewer = Component(({item: webViewerCursor,
                                 items: webViewersCursor }) => {
 
+    const isSelected = webViewerCursor.get('id') ==
+                       webViewersCursor.get('selected');
     // Do not render anything unless viewer has any `uri`
     if (!webViewerCursor.get('uri')) return null;
     return IFrame({
@@ -26,8 +28,8 @@ define((require, exports, module) => {
       isRemote: true,
       allowFullScreen: true,
 
-      isVisible: webViewerCursor.get('isSelected'),
-      hidden: !webViewerCursor.get('isSelected'),
+      isVisible: isSelected,
+      hidden: !isSelected,
       zoom: webViewerCursor.get('zoom'),
       isFocused: webViewerCursor.get('isFocused'),
       src: webViewerCursor.get('uri'),
@@ -38,7 +40,7 @@ define((require, exports, module) => {
       onBlur: WebViewer.onBlur(webViewerCursor),
       onFocus: WebViewer.onFocus(webViewerCursor),
       // onAsyncScroll: WebViewer.onUnhandled,
-      onClose: event => remove(webViewersCursor, x => x.equals(webViewerCursor)),
+      onClose: event => remove(webViewersCursor, webViewerCursor.get('id')),
       onOpenWindow: WebViewer.onOpenWindow(webViewersCursor),
       onContextMenu: WebViewer.onUnhandled,
       onError: event => console.error(event),
