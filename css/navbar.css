@@ -1,6 +1,7 @@
 .navbar {
   background-color: inherit;
   -moz-window-dragging: drag;
+  -webkit-app-region: drag;
   padding: 5px;
   position: relative;
   justify-content: space-between;

@@ -50,7 +50,7 @@ define((require, exports, module) => {
     join(' ');
 
   const writeChord = event =>
-    [...new Set([...readModifiers(event), readKey(event.key)])].
+    [...new Set([...readModifiers(event), readKey(getEventKey(event))])].
       join(' ').
       toLowerCase().
       split(' ').
@@ -75,6 +75,8 @@ define((require, exports, module) => {
 
         if (binding) {
           binding(...args);
+          event.preventDefault();
+          event.stopPropagation();
         }
       }
       return event;

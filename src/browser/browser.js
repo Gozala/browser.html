@@ -12,7 +12,7 @@ define((require, exports, module) => {
   const {NavigationPanel} = require('./navigation-panel');
   const {WebViewer} = require('./web-viewer');
   const {Tab} = require('./page-switch');
-  const {Element, Event, VirtualAttribute, Attribute} = require('./element');
+  const {Element, Event, CapturedEvent, VirtualAttribute, Attribute} = require('./element');
   const {KeyBindings} = require('./keyboard');
   const {zoomIn, zoomOut, zoomReset, open,
          goBack, goForward, reload, stop, title} = require('./web-viewer/actions');
@@ -38,8 +38,8 @@ define((require, exports, module) => {
     }),
     onDocumentFocus: Event('focus', getOwnerWindow),
     onDocumentBlur: Event('blur', getOwnerWindow),
-    onDocumentKeyDown: Event('keydown', getOwnerWindow),
-    onDocumentKeyUp: Event('keyup', getOwnerWindow),
+    onDocumentKeyDown: CapturedEvent('keydown', getOwnerWindow),
+    onDocumentKeyUp: CapturedEvent('keyup', getOwnerWindow),
     onDocumentUnload: Event('unload', getOwnerWindow)
   });
 

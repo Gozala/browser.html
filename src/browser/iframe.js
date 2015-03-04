@@ -16,12 +16,14 @@ define((require, exports, module) => {
     isBrowser: new BeforeAppendAttribute('mozbrowser'),
     allowFullScreen: new BeforeAppendAttribute('mozallowfullscreen'),
     src: VirtualAttribute((node, current, past) => {
+      node.setAttribute('nwdisable', true);
+      node.setAttribute('nwfaketop', true);
       if (current != past) {
-        if (node.setVisible) {
+//        if (node.setVisible) {
           node.src = current;
-        } else {
-          node.src = `data:text/html,${current}`
-        }
+//        } else {
+//          node.src = `data:text/html,${current}`
+//        }
       }
     }),
     isVisible: VirtualAttribute((node, current, past) => {
