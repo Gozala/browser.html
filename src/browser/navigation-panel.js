@@ -11,12 +11,12 @@ define((require, exports, module) => {
   const Component = require('omniscient');
   const {InputField} = require('./editable');
   const {Element} = require('./element');
-  const {navigateTo, showTabStrip, blur, focus} = require('./actions');
+  const {navigateTo, showTabStrip, blur, focus, select} = require('./actions');
   const {KeyBindings} = require('./keyboard');
   const url = require('./util/url');
   const {ProgressBar} = require('./progressbar');
   const ClassSet = require('./util/class-set');
-  const {throttle} = require('lang/functional');
+  const {throttle, compose, arity} = require('lang/functional');
   let {computeSuggestions, resetSuggestions} = require('./awesomebar');
 
   computeSuggestions = throttle(computeSuggestions, 200);
@@ -46,7 +46,7 @@ define((require, exports, module) => {
       })
     ]));
 
-  const updateSuggestionsSelection = (delta, suggestionsCursor, webViewerCursor) => {
+  const updateSuggestionsSelection = delta => suggestionsCursor => {
     const size = suggestionsCursor.get('list').size;
     let value = suggestionsCursor.get('selectedIndex') + delta;
     if (value >= size) {
@@ -55,6 +55,29 @@ define((require, exports, module) => {
     value = Math.max(-1, value);
     suggestionsCursor.set('selectedIndex', value);
   }
+
+
+  const onSuggetionNavigation = KeyBindings({
+    'up': updateSuggestionsSelection(-1),
+    'control p': updateSuggestionsSelection(-1),
+    'down': updateSuggestionsSelection(+1),
+    'control n': updateSuggestionsSelection(+1),
+    'enter': resetSuggestions
+  });
+
+  const onInputNavigation = KeyBindings({
+    'escape': (inputCursor, webViewerCursor) => {
+      focus(webViewerCursor);
+      // TODO: This should not be necessary but since in case of dashboard focus
+      // is passed to a hidden iframe DOM ignores that and we end up with focus
+      // still in `inputCursor`. As a workaround for now we manually `blur` input.
+      blur(inputCursor);
+    },
+    'accel l': arity(1, select)
+  });
+
+
+  /*
 
   const onInputKeyDown = ({event, inputCursor, webViewerCursor, suggestionsCursor}) => {
 
@@ -96,7 +119,7 @@ define((require, exports, module) => {
         suggestionsCursor.set('selectedIndex', -1);
     }
   };
-
+*/
 
   const NavigationControls = Component('NavigationControls', ({inputCursor, tabStripCursor,
                                          webViewerCursor, suggestionsCursor, theme}) => {
@@ -130,8 +153,9 @@ define((require, exports, module) => {
         placeholder: 'Search or enter address',
         value: inputValue,
         type: 'text',
+        submitKey: 'Enter',
         isFocused: inputCursor.get('isFocused'),
-        selection: inputCursor.get('isFocused'),
+        selection: inputCursor.get('selection'),
         onFocus: event => {
           computeSuggestions(event.target.value, suggestionsCursor);
           inputCursor.set('isFocused', true);
@@ -144,12 +168,12 @@ define((require, exports, module) => {
           computeSuggestions(event.target.value, suggestionsCursor);
           webViewerCursor.set('userInput', event.target.value);
         },
-        onKeyDown: event => onInputKeyDown({
-          event,
-          inputCursor,
-          webViewerCursor,
-          suggestionsCursor
-        })
+        onSubmit: event => {
+          resetSuggestions(suggestionsCursor);
+          navigateTo({inputCursor, webViewerCursor}, event.target.value, true);
+        },
+        onKeyDown: compose(onSuggetionNavigation(suggestionsCursor),
+                           onInputNavigation(inputCursor, webViewerCursor))
       }),
       DOM.p({key: 'page-info',
              className: 'pagesummary',

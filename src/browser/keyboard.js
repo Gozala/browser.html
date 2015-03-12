@@ -75,6 +75,7 @@ define((require, exports, module) => {
 
         if (binding) {
           binding(...args);
+          event.preventDefault();
         }
       }
       return event;
