@@ -133,14 +133,19 @@ define((require, exports, module) => {
 
   // Set max to the half of the safe int so that our math
   // operations like (a + b) will not be greater then safe int.
-  const MAX_WEIGHT = Number.MAX_SAFE_INTEGER / 2;
+  const MAX_WEIGHT = Number.MAX_SAFE_INTEGER;
   const MIN_WEIGHT = 0;
 
   // Returns weight for the given item.
-  const weightOf = item => item.get('weight') || (MIN_WEIGHT + MAX_WEIGHT) / 2;
+  const weightOf = item => item.get('weight') || center(MIN_WEIGHT, MAX_WEIGHT);
 
   // Returns items sorted by their weight.
   const arrange = items => items.sortBy(weightOf);
+
+  // Note: We do not just use `(x + y) / 2` as x + y may
+  // exceed Number.MAX_SAFE_INTEGER and have unexpected
+  // behavior.
+  const center = (x, y) => x + ((y - x) / 2);
 
   // Returns given `item` with modified `weight` such that it's
   // weight will fall in the center of `leading` & `following`
@@ -153,7 +158,7 @@ define((require, exports, module) => {
     // item as is. Otherwise use weight that is right in the middle
     // of the range.
     return (weight > start && weight < end) ? item :
-           item.set('weight', (start + end) / 2);
+           item.set('weight', center(start, end));
   }
 
   // Returs given `item` with modified `weight` such that it's
@@ -167,7 +172,8 @@ define((require, exports, module) => {
     let last = null;
     for (let entry of arrange(items)) {
       if (p(entry)) {
-        return asWeightedBetween(item, last, entry);
+        return entry === item ? item :
+               asWeightedBetween(item, last, entry);
       }
       last = entry;
     }
@@ -186,7 +192,8 @@ define((require, exports, module) => {
     let match = null;
     for (let entry of arrange(items)) {
       if (match) {
-        return asWeightedBetween(item, last, entry);
+        return entry === item ? item :
+               asWeightedBetween(item, last, entry);
       }
       last = entry;
       match = p(entry);
