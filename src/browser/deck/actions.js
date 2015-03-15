@@ -131,7 +131,9 @@ define((require, exports, module) => {
   // following items. Items get reordered post-activation to position recently
   // activated items to the head.
 
-  const MAX_WEIGHT = Number.MAX_SAFE_INTEGER;
+  // Set max to the half of the safe int so that our math
+  // operations like (a + b) will not be greater then safe int.
+  const MAX_WEIGHT = Number.MAX_SAFE_INTEGER / 2;
   const MIN_WEIGHT = 0;
 
   // Returns weight for the given item.
@@ -139,8 +141,6 @@ define((require, exports, module) => {
 
   // Returns items sorted by their weight.
   const arrange = items => items.sortBy(weightOf);
-
-  const center = (from, to) => (from + to) / 2;
 
   // Returns given `item` with modified `weight` such that it's
   // weight will fall in the center of `leading` & `following`
