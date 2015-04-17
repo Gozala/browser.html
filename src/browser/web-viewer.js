@@ -11,65 +11,164 @@ define((require, exports, module) => {
   const ClassSet = require('common/class-set');
   const {isPrivileged, getDomainName, getManifestURL} = require('common/url-helper');
   const {fromDOMRequest, fromEvent} = require('lang/promise');
-  const {compose} = require('lang/functional');
+  const {compose, curry} = require('lang/functional');
   const {isActive, isSelected} = require('./deck/actions');
   const {getHardcodedColors} = require('./theme');
   const {IFrame} = require('./iframe');
+  const {Record, List, Maybe, Any} = require('typed-immutable/index');
 
   const makeTileURI = input => `tiles/${getDomainName(input)}.png`;
 
-  const WebViewer = Component('WebViewer', ({state}, {onOpen, onOpenBg, onClose, edit}) => {
+  const WebView = Record({
+    // What the user wrote in the locationbar for this specific view
+    userInput: String(''),
+    // Zoom level of the web content.
+    zoom: Number(1),
+    // State of the web content:
+    // 'loading'|'loaded'|'stop'|'reload'|'goBack'|'goForward'
+    readyState: Maybe(String),
+    // `true` if web content is currently loading.
+    isLoading: Boolean(false),
+    // Has the server replied yet
+    isConnecting: Boolean(false),
+    // When the server replied first (while loading)
+    connectedAt: Maybe(Number),
+    // `true` if web content has a focus.
+    isFocused: Boolean(false),
+    // `true` if this is currently active web viewer, in other words
+    // if this is a web viewer currently displayed.
+    isActive: Boolean(false),
+    // `true` if this is currently selected web viewer. In most times
+    // is in sync with `isActive` although it does gets out of sync
+    // during tab switching when user is seleceting tab to switch to.
+    isSelected: Boolean(false),
+    // URI that is loaded / loading.
+    uri: Maybe(String),
+    // Currently loaded content's title.
+    title: Maybe(String),
+    // Icons from the loaded web content.
+    icons: Any,
+    // Metadata of the loaded web content.
+    meta: Any,
+    // Web content color info, should probably be moved elsewhere.
+    backgroundColor: Maybe(String),
+    foregroundColor: Maybe(String),
+    isDark: Boolean(false),
+    // Web content network security info.
+    securityState: String('insecure'),
+    securityExtendedValidation: Boolean(false),
+    // Flags indicating if web viewer can navigate back / forward.
+    canGoBack: Boolean(false),
+    canGoForward: Boolean(false),
 
-    // Do not render anything unless viewer has any `uri`
-    if (!state.get('uri')) return null;
+    contentOverflows: Boolean(false),
+    thumbnail: Maybe(String)
+  });
+
+  const set = field => value => target => target.set(field, value)
+  const patch = delta => state => state.merge(delta)
+
+  WebView.setMetaData = set('metadata')
+  WebView.setTitle = set('title')
+  WebView.setCanGoBack = set('canGoBack')
+  WebView.setCanGoForward = set('canGoForward')
+  WebView.blur = patch({isFocused: false})
+  WebView.focus = patch({isFocused: true})
+  WebView.startLoad = state => state.merge({
+    readyState: 'loading',
+    isLoading: true,
+    isConnecting: true,
+    startLoadingTime: performance.now(),
+    icons: void(0),
+    thumbnail: void(0),
+    title: void(0),
+    securityState: void(0),
+    securityExtendedValidation: void(0),
+    canGoBack: void(0),
+    canGoForward: void(0)
+  });
+  WebView.endLoad = state => state.merge({
+    // When the progressbar of a viewer is visible,
+    // we want to animate the progress to 1 on load. This
+    // is handled in the progressbar code. We only set
+    // progress to 1 for non selected viewers.
+    progress: state.isSelected ? state.progress : 1,
+    isConnecting: false,
+    endLoadingTime: performance.now(),
+    readyState: 'loaded',
+    isLoading: false
+  });
+  WebView.changeLocation = value => state => state.merge({
+    uri: value,
+    readyState: state.isLoading ? 'loading' : 'loaded',
+    userInput: value
+  }).merge(getHardcodedColors(value));
+
+  WebView.changeIcon = icon => state =>
+    state.setIn(['icons', icon.href], icon));
+
+  WebView.changeSecurity = security => state => state.merge({
+    securityState: security.state,
+    securityExtendedValidation: security.extendedValidation
+  });
+
+  WebView.setContentOverflows = set('contentOverflows')
+
+  WebView.render = Component('WebView', ({state}, {onOpen, onOpenBg, onClose, edit}) => {
+    // Do not render anything unless viewer has an `uri`
+    if (!state.uri) return null;
 
     return IFrame({
       className: ClassSet({
         'iframes-frame': true,
         webviewer: true,
-        contentoverflows: state.get('contentOverflows'),
+        contentoverflows: state.contentOverflows,
         // We need to style hidden iframes that don't have tiles differntly
         // to workaround #266 & be able to capture screenshots.
-        rendered: state.get('thumbnail')
+        rendered: state.thumbnail
       }),
       style: {
         MozUserSelect: 'none'
       },
       isBrowser: true,
       isRemote: true,
-      mozApp: isPrivileged(state.get('uri')) ? getManifestURL().href : null,
+      mozApp: isPrivileged(state.uri) ? getManifestURL().href : null,
       allowFullScreen: true,
 
-      isVisible: isActive(state) ||
-                 isSelected(state),
+      isVisible: state.isActive || state.isSelected,
+      hidden: !state.isActive,
 
-      hidden: !isActive(state),
+      zoom: state.zoom,
+      isFocused: state.isFocused,
+      uri: state.uri,
+      readyState: state.readyState,
 
-      zoom: state.get('zoom'),
-      isFocused: state.get('isFocused'),
-      uri: state.get('uri'),
-      readyState: state.get('readyState'),
-
-      onCanGoBackChange: WebViewer.onCanGoBackChange(edit),
-      onCanGoForwardChange: WebViewer.onCanGoForwardChange(edit),
-      onBlur: WebViewer.onBlur(edit),
-      onFocus: WebViewer.onFocus(edit),
+      onCanGoBackChange: event => edit(WebView.setCanGoBack(event.detail)),
+      onCanGoForwardChange: event => edit(WebView.setCanGoForward(event.detail)),
+      onBlur: event => edit(WebView.blur),
+      onFocus: event => edit(WebView.focus),
       // onAsyncScroll: WebViewer.onUnhandled,
-      onClose: event => onClose(state.get('id')),
+      onClose: event => onClose(state.id),
       onOpenWindow: event => onOpen(event.detail.url),
       onOpenTab: event => onOpenBg(event.detail.url),
-      onContextMenu: WebViewer.onUnhandled,
+      onContextMenu: event => console.log(event),
       onError: event => console.error(event),
-      onLoadStart: WebViewer.onLoadStart(edit),
-      onLoadEnd: WebViewer.onLoadEnd(edit),
-      onMetaChange: WebViewer.onMetaChange(edit),
-      onIconChange: WebViewer.onIconChange(edit),
-      onLocationChange: WebViewer.onLocationChange(edit),
-      onSecurityChange: WebViewer.onSecurityChange(edit),
-      onTitleChange: WebViewer.onTitleChange(edit),
-      onPrompt: WebViewer.onPrompt(edit),
-      onAuthentificate: WebViewer.onAuthentificate(edit),
-      onScrollAreaChange: WebViewer.onScrollAreaChange(edit),
+      onLoadStart: event => edit(WebView.startLoad),
+      onLoadEnd: event => edit(WebView.endLoad),
+      onMetaChange: event => edit(WebView.setMetaData(event.detail)),
+      onIconChange: event => edit(WebView.changeIcon(event.detail)),
+      onLocationChange: event => {
+        edit(WebView.changeLocation(event.detail));
+        requestThumbnail(event.target).
+          then(WebViewer.onThumbnailChanged(edit));
+      },
+      onSecurityChange: event => edit(WebView.changeSecurity(event.detail)),
+      onTitleChange: event => edit(WebView.setTitle(event.detail)),
+      onPrompt: event => console.log(event),
+      onAuthentificate: event => console.log(event),
+      onScrollAreaChange: event =>
+        WebView.setContentOverflows(event.detail.height >
+                                    event.target.parentNode.clientHeight),
       onLoadProgressChange: WebViewer.onLoadProgressChange(edit)
     });
   });
@@ -120,60 +219,8 @@ define((require, exports, module) => {
     return Promise.race([abort, thumbnail]);
   }
 
-  WebViewer.onUnhandled = event => console.log(event)
-  WebViewer.onBlur = edit => event =>
-    edit(state => state.set('isFocused', false));
-
-  WebViewer.onFocus = edit => event =>
-    edit(state => state.set('isFocused', true));
-
-  WebViewer.onLoadStart = edit => event => edit(state => state.merge({
-    readyState: 'loading',
-    isLoading: true,
-    isConnecting: true,
-    startLoadingTime: performance.now(),
-    icons: {},
-    thumbnail: null,
-    title: null,
-    securityState: 'insecure',
-    securityExtendedValidation: false,
-    canGoBack: false,
-    canGoForward: false
-  }));
-
-  WebViewer.onLoadEnd = edit => event => edit(state =>
-    state.merge({
-      // When the progressbar of a viewer is visible,
-      // we want to animate the progress to 1 on load. This
-      // is handled in the progressbar code. We only set
-      // progress to 1 for non selected viewers.
-      progress: isSelected(state) ? state.get('progress') : 1,
-      isConnecting: false,
-      endLoadingTime: performance.now(),
-      readyState: 'loaded',
-      isLoading: false
-    }));
-
-  WebViewer.onTitleChange = edit => event =>
-    edit(state => state.set('title', event.detail));
-
-
-  WebViewer.onLocationChange = edit => event => {
-    edit(state => state.
-                    merge({uri: event.detail,
-                           readyState: state.isLoading ? 'loading' : 'loaded',
-                           userInput: event.detail}).
-                    merge(getHardcodedColors(event.detail)));
-
-    requestThumbnail(event.target).
-      then(WebViewer.onThumbnailChanged(edit));
-  }
-
   WebViewer.onIconChange = edit => event =>
     edit(state => state.setIn(['icons', event.detail.href], event.detail));
-
-  WebViewer.onMetaChange = edit => event =>
-    edit(state => state.set('metadata', event.detail));
 
   WebViewer.onCanGoBackChange = edit => event =>
     edit(state => state.set('canGoBack', event.detail));
@@ -181,18 +228,10 @@ define((require, exports, module) => {
   WebViewer.onCanGoForwardChange = edit => event =>
     edit(state => state.set('canGoForward', event.detail));
 
-  WebViewer.onPrompt = edit => event => console.log(event);
-
-  WebViewer.onAuthentificate = edit => event => console.log(event);
 
   WebViewer.onScrollAreaChange = edit => ({target, detail}) =>
     edit(state => state.set('contentOverflows',
                             detail.height > target.parentNode.clientHeight));
-
-  WebViewer.onSecurityChange = edit => event =>
-    edit(state => state.merge({
-      securityState: event.detail.state,
-      securityExtendedValidation: event.detail.extendedValidation}));
 
   WebViewer.onLoadProgressChange = edit => event =>
     edit(state => !state.get('isConnecting') ? state :
