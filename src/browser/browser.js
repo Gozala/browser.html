@@ -31,7 +31,67 @@ define((require, exports, module) => {
   const {Main} = require('./main');
   const {Updates} = require('./update-banner');
   const {History, Page} = require('common/history');
-  const {render} = require('common/component');
+
+  const {Record, List} = require('typed-immutable');
+  const Editable = require('common/editable');
+  const Previews = require('./previews');
+
+
+  // Model
+
+  const Model = Record({
+    isDocumentFocused: true,
+    input: Editable,
+    previews: Previews,
+    dashboard: Dashboard,
+    suggestions: Suggestions,
+    updates: Updates,
+    webViews: WebViews
+  });
+
+  // Actions
+
+  const ViewAction = Record({id: String});
+  const NavigateView = Record({uri: String});
+
+  const OpenView = Record({
+    id: String,
+    isSelected: true,
+    isFocused: true,
+    isActive: true
+  });
+  const CloseView = Record({name: 'close-view'});
+
+
+  // View switching actions
+
+  const ActivateNthView = Record({name: 'activate-nth-view', n: Number});
+  const ActivateLastView = Record({name: 'activate-last-view'});
+  const ActivateDashboardView = Record({name: 'activate-dashboard'});
+  const ActivateNextView = Record({name: 'activate-next'});
+  const ActivatePrevious = Record({name: 'activate-previous'});
+
+  // View actions
+
+
+  // Locationbar actions
+  const ActivateLocationBar = Record({name: 'activate-location'});
+  const FocusLocationBar = Record({name: 'focus-location'});
+
+  // Previews actions
+  const ActivatePreviews = Record({name: 'activate-previews'});
+  const DeactivatePreviews = Record({name: 'deactivate-previews'});
+
+  // Session
+  const WriteSession = Record({name: 'write-session'});
+
+
+
+  module.exports = Model;
+
+
+
+
 
   const editWith = edit => {
     if (typeof (edit) !== 'function') {
@@ -236,7 +296,7 @@ define((require, exports, module) => {
     );
 
     const theme = isDashboardActive ?
-      Browser.readDashboardNavigationTheme(dashboard) :
+      readDashboardNavigationTheme(dashboard) :
       Browser.readTheme(activeWebView);
 
     return DOM.div({
@@ -284,7 +344,7 @@ define((require, exports, module) => {
         editInput,
         editSuggestions
       }),
-      render(Previews({
+      Previews.render(Previews({
         items: webViews,
         theme
       }), {
@@ -292,7 +352,8 @@ define((require, exports, module) => {
         onSelect: id => editWebViews(items => select(items, item => item.get('id') == id)),
         onActivate: id => editWebViews(items => activate(items, item => item.get('id') == id)),
         onClose: id => editWebViews(closeTab(id)),
-        edit: editWebViews
+        edit: editWebViews,
+        theme
       }),
       Suggestions.render({
         key: 'awesomebar',
@@ -321,8 +382,7 @@ define((require, exports, module) => {
         onOpen: uri => editWebViews(openTab(uri)),
         edit: editDashboard
       }),
-      render(WebViewBox({
-        key: 'web-view-box',
+      WebViewBox.render('web-view-box', WebViewBox({
         isActive: !isDashboardActive,
         items: webViews,
       }), {
@@ -339,7 +399,6 @@ define((require, exports, module) => {
   // Create a version of readTheme that will return from cache
   // on repeating calls with an equal cursor.
   Browser.readTheme = Component.cached(readTheme);
-  Browser.readDashboardNavigationTheme = Component.cached(readDashboardNavigationTheme);
 
   // Exports:
 

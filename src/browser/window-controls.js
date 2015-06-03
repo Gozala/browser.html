@@ -6,12 +6,53 @@ define((require, exports, module) => {
 
   'use strict';
 
-  const Component = require('omniscient');
-  const {DOM} = require('react');
-  const {sendEventToChrome} = require('./actions');
-  const {mix} = require('common/style');
+  const {Record} = require('typed-immutable');
+  const {html} = require('reflex');
+  const {dispatchEventToGecko} = require('./embedding');
 
-  const styleContainer = {
+
+  // Model
+  const ButtonStyle = Record({
+    backgroundColor: 'none',
+    display: 'inline-block',
+    width: 12,
+    height: 12,
+    marginRight: 8,
+    borderRadius: '50%'
+  })
+
+  const WindowTheme = Record({
+    minButton: ButtonStyle,
+    maxButton: ButtonStyle,
+    closeButton: ButtonStyle
+  })
+
+  const WindowControls = Record({
+    id: 'WindowControls',
+    theme: WindowTheme,
+    isFocused: Boolean
+  });
+
+  // Actions
+
+  const ChromeAction = Record({type: String});
+  WindowControls.Action = ChromeAction;
+
+  // Update
+
+  // WindowControls only produces `ChromeAction` that do not cause state
+  // changes.
+  WindowControls.update = (state, action) => {
+    if (action.constructor === ChromeAction) {
+      dispatchEventToGecko(action.type);
+    }
+
+    return state;
+  };
+
+  // View
+
+  const containerStyle = {
     position: 'absolute',
     top: 10,
     left: 10,
@@ -20,46 +61,36 @@ define((require, exports, module) => {
     marginLeft: 7,
   };
 
-  const styleButton = {
-    display: 'inline-block',
-    width: 12,
-    height: 12,
-    marginRight: 8,
-    borderRadius: '50%'
-  };
-
-  const styleGreyButton = mix({
+  const unfocusedButton = ButtonStyle({
     backgroundColor: 'hsl(0, 0%, 86%)'
-  }, styleButton);
-
-  const WindowControls = Component(({isDocumentFocused, windowControls, theme}) => {
-
-    const styleMinButton = mix(theme.windowMinButton, styleButton);
-    const styleMaxButton = mix(theme.windowMaxButton, styleButton);
-    const styleCloseButton = mix(theme.windowCloseButton, styleButton);
-
-    return DOM.div({
-      key: 'WindowControlsContainer',
-      style: styleContainer,
-    }, [
-      DOM.div({
-        key: 'WindowCloseButton',
-        style: isDocumentFocused ? styleCloseButton : styleGreyButton,
-        onClick: e => sendEventToChrome('shutdown-application')
-      }),
-      DOM.div({
-        key: 'WindowMinButton',
-        style: isDocumentFocused ? styleMinButton : styleGreyButton,
-        onClick: e => sendEventToChrome('minimize-native-window')
-      }),
-      DOM.div({
-        key: 'WindowMaxButton',
-        style: isDocumentFocused ? styleMaxButton : styleGreyButton,
-        onClick: e => sendEventToChrome('toggle-fullscreen-native-window')
-      })
-    ])
   });
 
-  exports.WindowControls = WindowControls;
+  const close = _ => ChromeAction({type: 'shutdown-application'});
+  const minimize = _ => ChromeAction({type: 'minimize-native-window'});
+  const maximize = _ => ChromeAction({type: 'toggle-fullscreen-native-window'});
+
+  WindowControls.view = ({isFocused, theme}) => html.div({
+    key: 'WindowControlsContainer',
+    style: containerStyle
+  }, [
+    html.div({
+      key: 'WindowCloseButton',
+      style: isFocused ? theme.closeButton : unfocusedButton,
+      onClick: close
+    }),
+    html.div({
+      key: 'WindowMinButton',
+      style: isFocused ? theme.minButton : unfocusedButton,
+      onClick: minimize
+    }),
+    DOM.div({
+      key: 'WindowMaxButton',
+      style: isFocused ? theme.maxButton : unfocusedButton,
+      onClick: maximize
+    })
+  ]);
+
+
+  module.exports = WindowControls;
 
 });

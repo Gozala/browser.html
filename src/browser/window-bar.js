@@ -14,6 +14,12 @@ define((require, exports, module) => {
   const {WindowControls} = require('./window-controls');
   const {LocationBar} = require('./location-bar');
 
+  const LocationBar = Record({
+
+  })
+
+  const
+
   const navbarStyle = {
     backgroundColor: 'inherit',
     MozWindowDragging: 'drag',
@@ -39,18 +45,13 @@ define((require, exports, module) => {
         sslv: webView.securityExtendedValidation,
       })
     }, [
-      WindowControls({
-        key: 'WindowControls',
-        isDocumentFocused,
-        theme
-      }),
+      render(WindowControls({isFocused, theme})),
       LocationBar.render(LocationBar({
         key: 'navigation',
         input, tabStrip, webView,
         suggestions, title, theme
       }), handlers),
-      ProgressBar({key: 'progressbar', rfa, webView, theme},
-                  {editRfa: handlers.editRfa})
+      render(Progress({id, readyState, theme: theme.progressbar}))
     ])
   });
 

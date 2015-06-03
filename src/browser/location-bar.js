@@ -10,7 +10,7 @@ define((require, exports, module) => {
   const Component = require('omniscient');
   const {throttle, compose} = require('lang/functional');
   const {Suggestions} = require('./suggestion-box');
-  const {Editable} = require('common/editable');
+  const Editable = require('common/editable');
   const {WebView} = require('./web-view');
   const {Previews} = require('./preview-box');
   const {getDomainName} = require('common/url-helper');
@@ -19,21 +19,8 @@ define((require, exports, module) => {
   const {isPrivileged} = require('common/url-helper');
 
   // Model
-  const LocationBar = function(state) {
-    return Object.assign({}, state, {input: Editable(state.input)})
-  }
 
-  // Actions
-  LocationBar.enter = compose(Editable.selectAll, Editable.focus)
-  LocationBar.suggest = throttle(Suggestions.compute, 200)
-  LocationBar.select = Editable.select
-  LocationBar.selectAll = Editable.selectAll
-  LocationBar.focus = Editable.focus
-  LocationBar.blur = Editable.blur
-
-  // Style
-
-  const styleLocationBar = {
+  const LocationBarStyle = Record({
     display: 'inline-block',
     position: 'relative',
     MozWindowDragging: 'no-drag',
@@ -45,24 +32,13 @@ define((require, exports, module) => {
     margin: '0 67px',
     backgroundColor: 'rgba(0,0,0,0.07)',
     overflow: 'hidden'
-  };
+  });
 
-  const stylePageSummary = {
-    lineHeight: '30px',
-    overflow: 'hidden',
-    width: '100%',
-    display: 'inline-block',
-    textOverflow: 'ellipsis',
-    textAlign: 'center'
-  };
+  const ButtonStyle = Record({
+    opacity: Maybe(Number),
+    pointerEvents: Maybe(String),
+    display: Maybe(String),
 
-  const styleCollapse = {
-    /* We don't use display:none. We want the input to be focussable */
-    maxWidth: 0,
-    padding: 0
-  };
-
-  const styleButton = {
     position: 'absolute',
     top: 0,
     width: 30,
@@ -72,147 +48,236 @@ define((require, exports, module) => {
     fontSize: '17px',
     verticalAlign: 'middle',
     cursor: 'default'
-  };
+  });
 
-  const styleDisabledButton = {
-    opacity: 0.2,
-    pointerEvents: 'none'
-  };
+  const URLInputStyle = Record({
+    padding: Maybe(Number),
+    maxWidth: Maybe(Number),
 
-  const styleUrlInput = {
     lineHeight: '30px',
     overflow: 'hidden',
     width: '100%',
     borderRadius: 0
-  };
+  });
+
+  const PageSummaryStyle = Record({
+    lineHeight: '30px',
+    overflow: 'hidden',
+    width: '100%',
+    display: 'inline-block',
+    textOverflow: 'ellipsis',
+    textAlign: 'center'
+  });
+
+  const LocationTextStyle = Record({
+    fontWeight: 'bold'
+  });
+
+  const TitleTextStyle = Record({
+    padding: 5
+  });
+
+  const LocationBar = Record({
+    id: 'LocationBar',
+    input: Editable,
+    uri: Maybe(String),
+    title: Maybe(String),
+    viewID: String,
+    selectedSuggestion: Maybe(String),
+    userInput: Maybe(String),
+    progress: 0,
+    theme: Record({
+      backButton: ButtonStyle({left: 0}),
+      reloadButton: ButtonStyle({right: 0}),
+      urlInput: URLInputStyle, //
+      pageSummary: PageSummaryStyle, // used to be pageInfoText
+      locationText: LocationTextStyle,
+      titleText: TitleTextStyle,
+      locationBar: LocationBarStyle
+    })
+  });
+
+  // Actions
+
+  const {Focus, Blur, Select, Change} = Editable.Actions;
+
+
+  // Focus input & requests suggestions for the .value.
+  const Enter = Record({
+    value: String,
+    timeStamp: Number
+  });
+  Enter.fromEvent = event => Enter({
+    value: event.target.value,
+    timeStamp: event.timeStamp
+  });
+
+  // Blur input & request suggestions for the .value
+  const Exit = Record({
+    timeStamp: Number
+  });
+
+  const Submit = Record({
+    value: String,
+    timeStamp: Number
+  });
+  Sumbit.fromEvent = event => Submit({
+    value: event.target.value,
+    timeStamp: event.timeStamp
+  });
+
+  const Preview = Record({
+    timeStamp: Number
+  });
+
+
+  const GoBack = Record({id: String});
+  const GoForward = Record({id: String});
+  const Stop = Record({id: String});
+  const Reload = Record({id: String});
+
+
+  LocationBar.Action = Union(Focus, Blur, Select, Change,
+                             Enter, Exit, Sumbit, Preview,
+                             GoBack, GoForward, Stop, Reload);
+
+
+  // Update
+
+  const collapse = style =>
+    /* We don't use display:none. We want the input to be focussable */
+    style.merge({maxWidth: 0, padding: 0});
+
+  const disable = style =>
+    style.merge({opacity: 0.2, pointerEvents: 'none'});
+
+  const hide = style =>
+    style.merge({display: 'none'});
+
+  const updateInput = (state, actions) =>
+    state.set('input', Editable.update(state.input, action));
+
+  LocationBar.update = (state, action) => {
+    if (action.constructor === Enter) {
+      state = updateInput(state, Focus(action));
+      return updateInput(state, Select.All(action));
+    }
+
+    if (action.constructor === Exit) {
+      return updateInput(state, Blur(action));
+    }
+
+    if (action.constructor === Select) {
+      return updateInput(state, action);
+    }
+
+    if (action.constructor === Change) {
+      return state.set('userInput', action.value)
+                  .remove('selectedSuggestion');
+    }
+
+    return state;
+  }
 
   // View
 
-  // Bindings for navigation suggestions.
-  const onSuggetionNavigation = KeyBindings({
-    'up': edit => edit(Suggestions.selectPrevious),
-    'control p': edit => edit(Suggestions.selectPrevious),
-    'down': edit => edit(Suggestions.selectNext),
-    'control n': edit => edit(Suggestions.selectNext),
-    'enter': edit => edit(Suggestions.unselect)
-  });
-
-  // General input keybindings.
-  const onInputNavigation = KeyBindings({
-    'escape': (editInput, editSelectedWebView) => {
-      editSelectedWebView(Editable.focus).toJSON();
-      // TODO: This should not be necessary but since in case of dashboard focus
-      // is passed to a hidden iframe DOM ignores that and we end up with focus
-      // still in an `input`. As a workaround for now we manually `blur` input.
-      editInput(Editable.blur);
-    },
-    'accel l': (editInput, _) => editInput(LocationBar.enter)
+  const Binding = KeyBindings({
+    'up': SuggestPrevious,
+    'constrol p': SuggestPrevious,
+    'down': SuggestNext,
+    'control n': SuggestNext,
+    'enter': Submit.fromEvent,
+    'escape': Exit,
+    'accel l': Enter.fromEvent
   });
 
 
-  LocationBar.render = Component(function LocationBarView(state, handlers) {
-    const {input, tabStrip, webView, suggestions, theme} = state;
-    const {onNavigate, editTabStrip, onGoBack, editSelectedWebView,
-           editInput, editSuggestions} = handlers;
+  const BackIcon = '\uf053';
+  const GearIcon = '\uf013';
+  const LockIcon = '\uf023';
+  const ReloadIcon = '\uf01e';
+  const StopIcon = '\uf00d';
 
-    const isInputFocused = input.isFocused;
 
-    return DOM.div({
-      style: mix(styleLocationBar, theme.locationBar),
-      onMouseEnter: event => editTabStrip(Previews.activate)
+  LocationBar.view = state => html.div({
+    key: state.id,
+    style: state.theme.locationBar,
+    onMouseEnter: Preview
+  }, [
+    html.div({
+      key: 'back',
+      onClick: _ => GoBack({id: state.viewID}),
+
+      // {left: 0} ??
+      style: state.canGoBack ? state.theme.backButton :
+             ButtonStyle.disable(state.theme.backButton)
+    }, [BackIcon]),
+    html.input({
+      key: 'input',
+      placeholder: 'Search or enter address',
+      type: 'text',
+      value: state.selectedSuggestion || state.userInput,
+      style: state.input.isFocused ? theme.urlInput :
+             collapse(theme.urlInput),
+      isFocused: input.isFocused,
+
+      selectionStart: input.selection.start,
+      selectionEnd: input.selection.end,
+      selectionDirection: input.selection.direction,
+
+      onSelect: Select.fromEvent,
+      onChange: Change.fromEvent,
+
+      onFocus: Enter.fromEvent,
+      onBlur: Exit,
+      onKeyDown: Binding
+    }),
+    html.p({
+      key: 'page-info',
+      style: state.input.isFocused ? theme.pageSummary :
+             collapse(theme.pageSummary),
+      onClick: Enter.fromEvent,
     }, [
-      DOM.div({
-        style: mix(styleButton,
-                   {left: 0},
-                   theme.backButton,
-                   !webView.canGoBack && styleDisabledButton),
-        key: 'back',
-        onClick: event => editSelectedWebView(WebView.goBack)
-      }, '\uf053'), // UTF8 "back" icon
-      Editable.renderField({
-        key: 'input',
-        style: mix(styleUrlInput,
-                   theme.urlInput,
-                   !isInputFocused && styleCollapse),
-        placeholder: 'Search or enter address',
-        value: Suggestions.selected(suggestions) || webView.userInput,
-        type: 'text',
-        submitKey: 'Enter',
-        isFocused: input.isFocused,
-        selectionStart: input.selectionStart,
-        selectionEnd: input.selectionEnd,
-        selectionDirection: input.selectionDirection,
-        onFocus: event => {
-          LocationBar.suggest(event.target.value, editSuggestions);
-          editInput(Editable.focus);
-        },
-        onBlur: event => {
-          editSuggestions(Suggestions.reset);
-          editInput(Editable.blur);
-        },
-        onSelect: event => editInput(Editable.select(event.target)),
-        onChange: event => {
-          // Reset suggestions & compute new ones from the changed input value.
-          editSuggestions(Suggestions.unselect);
-          LocationBar.suggest(event.target.value, editSuggestions);
-          // Also reflect changed value onto webViews useInput.
-          editSelectedWebView(viewer => viewer.set('userInput', event.target.value));
-        },
-        onSubmit: event => {
-          editSuggestions(Suggestions.reset);
-          onNavigate(event.target.value);
-        },
-        onKeyDown: compose(onInputNavigation(editInput, editSelectedWebView),
-                           onSuggetionNavigation(editSuggestions))
-      }),
-      DOM.p({key: 'page-info',
-             style: mix(stylePageSummary,
-                        theme.pageInfoText,
-                        isInputFocused && styleCollapse),
-             onClick: event => editInput(compose(Editable.selectAll, Editable.focus))}, [
-        DOM.span({
-          key: 'securityicon',
-          style: {
-            fontFamily: 'FontAwesome',
-            fontWeight: 'normal',
-            marginRight: 6,
-            verticalAlign: 'middle'
-          }
-        }, isPrivileged(webView.uri) ? '\uf013' :  // Gear
-           webView.securityState == 'secure' ? '\uf023' : ''), // Lock
-        DOM.span({
-          key: 'location',
-          style: theme.locationText,
-          style: {
-            fontWeight: 'bold'
-          }
-        },
-        webView.uri ? getDomainName(webView.uri) : ''),
-        DOM.span({
-          key: 'title',
-          style: mix(theme.titleText, {padding: 5})
-        },
-        webView.title ? webView.title :
-               webView.isLoading ? 'Loading...' :
-               webView.uri ? webView.uri :
-               'New Tab')
+      html.span({
+        key: 'securityicon',
+        style: {
+          fontFamily: 'FontAwesome',
+          fontWeight: 'normal',
+          marginRight: 6,
+          verticalAlign: 'middle'
+        }
+      }, [
+        isPrivileged(state.uri) ? GearIcon :
+        state.security.state == 'secure' ? LockIcon :
+        ''
       ]),
-      DOM.div({key: 'reload-button',
-               style: mix(styleButton,
-                          theme.reloadButton,
-                          {right: 0},
-                          webView.isLoading && {display:'none'},
-                          !webView.uri && styleDisabledButton),
-               onClick: event => editSelectedWebView(WebView.reload)
-      }, '\uf01e'), // UTF8 "reload" icon
-      DOM.div({key: 'stop-button',
-               style: mix(styleButton,
-                          theme.stopButton,
-                          {right: 0},
-                          !webView.isLoading && {display:'none'}),
-               onClick: event => editSelectedWebView(WebView.stop)
-      }, '\uf00d') // UTF8 "stop" icon
-  ])});
+      html.span({
+        key: 'location',
+        style: state.theme.locationText
+      }, [state.uri ? getDomainName(state.uri) : '']),
+      html.span({
+        key: 'title',
+        style: state.theme.titleText
+      }, [
+        state.title ? state.title :
+        state.loadStarted > 0 ? 'Loading...' :
+        'New Tab'
+      ]),
+    ]),
+    html.div({
+      key: 'reload-button',
+      style: isLoading(state) ? hide(state.theme.reloadButton) :
+             !state.uri ? disable(state.theme.reloadButton) :
+             state.reloadButton,
+      onClick: _ => Reload({id: state.viewID}),
+    }, [ReloadIcon]),
+    html.div({
+      key: 'stop-button',
+      style: isLoading(state) ? hide(state.theme.stopButton) :
+             state.theme.stopButton,
+      onClick: _ => Stop({id: state.viewID}),
+    }, [StopButton])
+  ]);
 
-  exports.LocationBar = LocationBar;
+  module.exports = LocationBar;
 });

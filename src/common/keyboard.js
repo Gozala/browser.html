@@ -58,25 +58,38 @@ define((require, exports, module) => {
       .join(' ');
 
 
-  const KeyBindings = (handlers) => {
+  const KeyBindings = bindingTable => {
     const bindings = Object.create(null);
-    Object.keys(handlers).forEach(key => {
-      bindings[readChord(key)] = handlers[key];
+    Object.keys(bindingTable).forEach(key => {
+      bindings[readChord(key)] = bindingTable[key];
     });
 
-    return (...args) => event => {
-      if (event) {
-        const chord = writeChord(event);
-        const binding = bindings[chord];
+    return event => {
+      const chord = writeChord(event);
+      const read = bindings[chord] ||
+                   bindings[`${event.type}: ${chord}`]
 
-        if (binding) {
-          binding(...args);
-          event.preventDefault();
-          event.stopPropagation();
-        }
+      if (read) {
+        event.preventDefault();
+        event.stopPropagation();
+        return read(event);
       }
+
       return event;
     }
+  }
+  KeyBindings.Stop = read => {
+    event.stopPropagation();
+    return read(event);
+  }
+  KeyBindings.Cancel = read => {
+    event.preventDefault();
+    return read(event);
+  }
+  KeyBindings.Abort = read => {
+    event.preventDefault();
+    event.stopPropagation();
+    return read(event);
   }
 
 
