@@ -1,74 +1,43 @@
+/* @flow */
+
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-define((require, exports, module) => {
-  'use strict';
+import {start, Effects} from "reflex";
+import * as Browser from "./browser";
+import * as Runtime from "../common/runtime";
 
-  const {Application, Address} = require('reflex');
-  const Browser = require('./browser');
-  const Thumbnail = require('service/thumbnail');
-  const Pallet = require('service/pallet');
-  const Update = require('service/update');
-  const Session = require('./session');
-  const Runtime = require('common/runtime');
-  const History = require('service/history');
-  const Search = require('service/search');
-  const Suggestion = require('service/suggestion');
-  const Keyboard = require('common/keyboard');
-  const Settings = require('service/settings');
-  const Scraper = require('service/scraper');
-  const Navigation = require('service/navigation');
-  const Gesture = require('service/gesture');
+// import * as Session from "./session";
+import {version} from "../../package.json";
+import {Renderer} from "driver";
 
-  // Set up a address (message bus if you like) that will be used
-  // as an address for all application components / services. This
-  // address is going to receive action and then pass it on to each
-  // application component for it handle it.
-  const address = new Address({
-    receive(action) {
-      application.receive(action);
-      thumbnail(action);
-      pallet(action);
-      runtime(action);
-      suggestion(action);
-      keyboard(action);
-      settings(action);
-      scraper(action);
-      navigation(action);
-    }
-  });
-  window.address = address;
 
-  const application = new Application({
-    target: document.body,
-    state: Browser.Model(),
-    update: Browser.update,
-    view: Browser.view,
-    address: address
-  });
-  window.application = application;
+const logger = (step) => (model, action) => {
+  const out = step(model, action);
+  console.log(action, ...out);
+  return out;
+}
 
-  const thumbnail = Thumbnail.service(address);
-  const pallet = Pallet.service(address);
-  const updater = Update.service(address);
-  const runtime = Runtime.service(address);
-  const suggestion = Suggestion.service(address);
-  const keyboard = Keyboard.service(address);
-  const settings = Settings.service(address);
-  const scraper = Scraper.service(address);
-  const navigation = Navigation.service(address);
-  const gesture = Gesture.service(address);
+const isReload = window.application != null;
 
-  // See src/prerendering.js
-  document.body.innerHTML = '';
-  application.render();
-  window.localStorage.setItem('prerender', document.body.innerHTML);
+// If hotswap change address so it points to a new mailbox &r
+// re-render.
+if (isReload) {
+  window.application.address(Runtime.LiveReload);
+}
 
-  // Restore application state.
-  address.receive(Session.RestoreSession());
-
-  // Trigger a forced update check after 5s to not slow down startup.
-  // TODO: delay until we're online if needed.
-  window.setTimeout(address.pass(Runtime.CheckUpdate), 500);
+const application = start({
+  initial: isReload ?
+            window.application.model.value :
+            Browser.initialize(),
+  step: logger(Browser.step),
+  view: Browser.view
 });
+
+
+const renderer = new Renderer({target: document.body});
+application.view.subscribe(renderer.address);
+application.task.subscribe(Effects.service(application.address));
+
+window.application = application;

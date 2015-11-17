@@ -1,126 +1,88 @@
-/* This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+/* @flow */
 
-// Manages events coming from gecko.
+/*:: import * as type from "../../type/common/runtime" */
+import {always} from "../common/prelude";
+import {Task, Effects} from "reflex";
 
-define((require, exports, module) => {
-  'use strict';
+// Actions
+export const RemoteDebugRequest/*:type.RemoteDebugRequest*/
+  = {type: "Runtime.RemoteDebugRequest"};
 
-  const {Record, Union, Any} = require('common/typed');
+export const UpdateAvailable/*:type.UpdateAvailable*/
+  = {type: "Runtime.UpdateAvailable"};
 
-  // Actions
+export const UpdateDownloaded/*:type.UpdateDownloaded*/
+  = {type: "Runtime.UpdateDownloaded"};
 
-  const Unknown = Record({
-    type: String,
-    detail: Any
-  }, 'Runtime.Unknown');
-  exports.Unknown = Unknown;
+export const CheckUpdate/*:type.CheckUpdate*/
+  = {type: "Runtime.CheckUpdate"};
 
-  const RemoteDebugRequest = Record({
-    type: 'remote-debugger-prompt'
-  }, 'Runtime.RemoteDebugRequest');
-  exports.RemoteDebugRequest = RemoteDebugRequest;
+export const Restart/*:type.Restart*/
+  = {type: "Runtime.Restart"};
 
-  const UpdateAvailable = Record({
-    type: 'update-available'
-  }, 'Runtime.UpdateAvailable');
-  exports.UpdateAvailable = UpdateAvailable;
+export const CleanRestart/*:type.CleanRestart*/
+  = {type: "Runtime.CleanRestart"};
 
-  const UpdateDownloaded = Record({
-    type: 'update-downloaded'
-  }, 'Runtime.UpdateDownloaded');
-  exports.UpdateDownloaded = UpdateDownloaded;
+export const CleanReload/*:type.CleanReload*/
+  = {type: "Runtime.CleanReload"};
 
+export const Closed/*:type.Closed*/
+  = {type: "Runtime.Closed"};
 
-  const CheckUpdate = Record({
-    type: 'force-update-check'
-  }, 'Runtime.CheckUpdate');
-  exports.CheckUpdate = CheckUpdate;
+export const Minimized/*:type.Minimized*/
+  = {type: "Runtime.Minimized"};
 
-  const RemoteDebugResponse = Record({
-    type: 'remote-debugger-prompt',
-    value: Boolean
-  }, 'Runtime.RemoteDebugResponse');
-  exports.RemoteDebugResponse = RemoteDebugResponse;
+export const FullScreenToggled/*:type.FullScreenToggled*/
+  = {type: "Runtime.FullScreenToggled"};
 
-  const DownloadUpdate = Record({
-    type: 'update-available-result',
-    result: 'download'
-  }, 'Runtime.DownloadUpdate');
-  exports.DownloadUpdate = DownloadUpdate;
-
-  const Restart = Record({
-    type: 'restart',
-  }, 'Runtime.Restart');
-  exports.Restart = Restart;
-
-  const CleanRestart = Record({
-    type: 'clear-cache-and-restart'
-  }, 'Runtime.CleanRestart');
-  exports.CleanRestart = CleanRestart;
-
-  const CleanReload = Record({
-    type: 'clear-cache-and-reload'
-  }, 'Runtime.CleanReload');
-  exports.CleanReload = CleanReload;
-
-  const Shutdown = Record({
-    type: 'shutdown-application'
-  }, 'Runtime.Shutdown');
-  exports.Shutdown = Shutdown;
-
-  const Minimize = Record({
-    type: 'minimize-native-window'
-  }, 'Runtime.Minimize');
-  exports.Minimize = Minimize;
-
-  const Maximize = Record({
-    type: 'toggle-fullscreen-native-window'
-  }, 'Runtime.Maximize');
-  exports.Maximize = Maximize;
+export const LiveReload/*:type.LiveReload*/
+  = {type: "Runtime.LiveReload"};
 
 
-  const Incoming = ({detail}) =>
-    detail.type === 'remote-debugger-prompt' ? RemoteDebugRequest() :
-    detail.type === 'update-available' ? UpdateAvailable() :
-    detail.type === 'update-downloaded' ? UpdateDownloaded() :
-    detail.type === 'update-prompt-apply' ? UpdateDownloaded() :
-    Unknown({type: detail.type, detail});
-
-  const service = address => {
-    // Start listening for runtime events.
-    window.addEventListener('mozChromeEvent', address.pass(Incoming));
-
-    return action => {
-      if (action instanceof RemoteDebugRequest) {
-        address.receive(RemoteDebugResponse({value: true}));
-      } else if (action instanceof UpdateDownloaded) {
-        address.receive(DownloadUpdate());
-      } else if (action instanceof Unknown) {
-        console.warn(`Unknown runtime event ${action}`)
-      } else if (action instanceof CheckUpdate ||
-                 action instanceof RemoteDebugResponse ||
-                 action instanceof DownloadUpdate ||
-                 action instanceof Restart ||
-                 action instanceof CleanRestart ||
-                 action instanceof CleanReload ||
-                 action instanceof Shutdown ||
-                 action instanceof Minimize ||
-                 action instanceof Maximize)
-      {
-        window.dispatchEvent(new CustomEvent('mozContentEvent', {
-          bubles: true,
-          cancelable: false,
-          detail: action.toJSON()
-        }));
-
-        if (action instanceof Restart) {
-          console.warn(`Unsupported runtime action triggered ${action}`);
-        }
-      }
-    }
-  };
-
-  exports.service = service;
+// Action annotations
+export const asUnknown/*:type.asUnknown*/ = detail => ({
+  type: "Runtime.Unknown",
+  detail
 });
+
+export const asRemoteDebugResponse/*:type.asRemoteDebugResponse*/ = value => ({
+  type: "Runtime.RemoteDebugResponse",
+  value
+});
+
+export const asDownloadUpdate/*:type.asDownloadUpdate*/ = result => ({
+  type: "Runtime.DownloadUpdate",
+  result
+});
+
+
+const dispatchRequest = data =>
+  dispatchEvent(new CustomEvent("mozContentEvent", {
+    bubbles: false,
+    cancelable: false,
+    detail: data
+  }));
+
+export const shutdown/*:type.minimize*/ = () =>
+  Effects.task(Task.io((deliver) => {
+    dispatchRequest({type: "shutdown-application"});
+    // We do not actually close a window but rather we shut down an app, there
+    // will be nothing handling a response so we don"t even bother with it.
+  }));
+
+
+export const minimize/*:type.minimize*/ = () =>
+  Effects.task(Task.future(() => {
+    dispatchRequest({type: "minimize-native-window"});
+    // We do not get event back when window is minimized so we just pretend
+    // that we got it after a tick.
+    return Promise.resolve(Minimized);
+  }));
+
+export const toggleFullScreen/*:type.toggleFullScreen*/ = () =>
+  Effects.task(Task.future(() => {
+    dispatchRequest({type: "toggle-fullscreen-native-window"});
+    // We do not get event back when window is maximized so we just pretend
+    // that we got it after a tick.
+    return Promise.resolve(FullScreenToggled);
+  }));

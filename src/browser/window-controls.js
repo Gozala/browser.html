@@ -1,91 +1,100 @@
+/* @flow */
+
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-define((require, exports, module) => {
+import {html, forward} from 'reflex';
+import {on} from 'driver';
+import {asFor} from "../common/prelude";
+import {Style, StyleSheet} from '../common/style';
+import * as Target from '../common/target';
+import * as Shell from '../browser/shell';
+/*:: import * as type from '../../type/browser/window-controls' */
 
-  'use strict';
+// style
 
-  const {html} = require('reflex');
-  const {Style, StyleSheet} = require('common/style');
-  const Runtime = require('common/runtime');
+const styleButton = StyleSheet.create({
+  button: {
+    backgroundImage: 'url(css/window-controls.sprite.png)',
+    backgroundRepeat: 'no-repeat',
+    // Scale sprite by 1/2 for retina.
+    backgroundSize: '25px auto',
+    width: '12px',
+    height: '12px',
+    left: 0,
+    position: 'absolute',
+    top: 0
+  },
+  close: {
+    backgroundPosition: '0 -150px',
+    left: 0
+  },
+  min: {
+    backgroundPosition: '0 -200px',
+    left: '20px'
+  },
+  max: {
+    backgroundPosition: '0 -250px',
+    left: '40px'
+  },
+  hoverClose: {
+    backgroundPosition: '0 0',
+  },
+  hoverMin: {
+    backgroundPosition: '0 -50px',
+  },
+  hoverMax: {
+    backgroundPosition: '0 -100px',
+  },
+  unfocused: {
+    backgroundPosition: '0 -300px'
+  },
+});
 
-  // style
+const styleContainer = StyleSheet.create({
+  container: {
+    height: '12px',
+    position: 'absolute',
+    width: '50px',
+    top: '8px',
+    left: '8px',
+    zIndex: 200
+  },
+});
 
-  const styleButton = StyleSheet.create({
-    button: {
-      backgroundPosition: '0 0',
-      backgroundRepeat: 'no-repeat',
-      // Scale sprite by 1/2 for retina.
-      backgroundSize: '12px auto',
-      width: 12,
-      height: 12,
-      left: 0,
-      position: 'absolute',
-      top: 0
-    },
-    close: {
-      left: 0
-    },
-    min: {
-      backgroundPosition: '0 -50px',
-      left: 20
-    },
-    max: {
-      backgroundPosition: '0 -100px',
-      left: 40
-    },
-    light: {
-      backgroundImage: 'url(css/window-controls-light.sprite.png)',
-    },
-    dark: {
-      backgroundImage: 'url(css/window-controls-dark.sprite.png)'
-    }
-  });
-
-  const styleContainer = StyleSheet.create({
-    container: {
-      height: 12,
-      position: 'absolute',
-      width: 50,
-      top: 8,
-      left: 8,
-      zIndex: 200
-    },
-    light: {
-    },
-    dark: {
-    }
-  });
-
-  // Style
-
-
-  const view = ({isFocused}, theme, address) => html.div({
-    key: 'WindowControls',
+export const view/*:type.view*/ = ({isFocused, isPointerOver}, address) =>
+  html.div({
+    key: 'window-controls',
+    className: 'window-controls',
     style: styleContainer.container,
+    onMouseOver: forward(address, Target.asOver),
+    onMouseOut: forward(address, Target.asOut),
   }, [
     html.button({
       key: 'WindowCloseButton',
       style: Style(styleButton.button,
                    styleButton.close,
-                   theme.isDark ? styleButton.dark : styleButton.light),
-      onClick: address.send(Runtime.Shutdown())
+                   !isFocused && styleButton.unfocused,
+                   isPointerOver && styleButton.hoverClose),
+      onClick: forward(address, Shell.asRequestClose),
     }),
     html.button({
       key: 'WindowMinButton',
+      className: 'button minimize',
       style: Style(styleButton.button,
                    styleButton.min,
-                   theme.isDark ? styleButton.dark : styleButton.light),
-      onClick: address.send(Runtime.Minimize())
+                   !isFocused && styleButton.unfocused,
+                   isPointerOver && styleButton.hoverMin),
+      onClick: forward(address, Shell.asRequestMinimize),
     }),
     html.button({
       key: 'WindowMaxButton',
+      className: 'button maximize',
       style: Style(styleButton.button,
                    styleButton.max,
-                   theme.isDark ? styleButton.dark : styleButton.light),
-      onClick: address.send(Runtime.Maximize())
+                   !isFocused && styleButton.unfocused,
+                   isPointerOver && styleButton.hoverMax),
+      onClick: forward(address, Shell.asRequestFullScreenToggle)
     })
   ]);
-  exports.view = view;
-});

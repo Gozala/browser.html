@@ -6,8 +6,10 @@ will be on our platform and processes to build our platform, which we want to ev
 
 #### Setup
 
-```
-npm install
+Due to library dependencies (sockit-to-me) the only supported node versions are 0.10 and 0.12.
+
+```sh
+npm install --no-optional
 npm start
 ```
 
