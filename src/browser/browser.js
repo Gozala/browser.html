@@ -84,8 +84,8 @@ const KeyUp = KeyBindings({
 // Unbox For actions and route them to their location.
 const stepFor = (model, action) => {
   if (action.target === 'Input') {
-    const [input, fx] = Input.update(model.input, action.action);
-    return [merge(model, {input}), fx.map(asFor('Input'))];
+    const input = Input.update(model.input, action.action);
+    return [merge(model, {input}), Effects.none];
   }
   else if (action.target === 'Shell') {
     const [shell, fx] = Shell.step(model.shell, action.action);
