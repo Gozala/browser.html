@@ -6,8 +6,9 @@
 
 import {error, ok} from '../Common/Result'
 import * as Unknown from '../Common/Unknown'
-import {merge, always} from '../Common/Prelude'
+import {merge, always, nofx} from '../Common/Prelude'
 import {Effects, Task} from 'reflex'
+import * as Runtime from '../Common/Runtime'
 
 import type {Never} from 'reflex'
 import type {Result} from './Result'
@@ -75,75 +76,95 @@ const merges =
     }
     return result
   }
+
     )
   )
 
 export const fetch =
-  (names:Array<Name>):Task<Never, Result<Error, Settings>> =>
-  new Task((succeed, fail) => {
+  (names:Array<Name>):Task<Never, Result<Error, Settings>> => {
     if (navigator.mozSettings != null) {
-      const lock = navigator.mozSettings.createLock()
-      const settings = names.map(name => lock.get(name))
-      Promise
-        .all(settings)
-        .then(merges)
-        .then(ok, error)
-        .then(succeed, fail)
+      const mozSettings = navigator.mozSettings
+      return new Task((succeed, fail) => {
+        const lock = mozSettings.createLock()
+        const settings = names.map(name => lock.get(name))
+        Promise
+          .all(settings)
+          .then(merges)
+          .then(ok, error)
+          .then(succeed, fail)
+      })
     } else {
-      Promise
-        .resolve(error(NotSupported))
-        .then(succeed, fail)
+      const task = Runtime
+        .request('settings', 'fetched', {
+          type:'fetch',
+          names
+        })
+        .map(ok)
+        .recover(error)
+      return task
     }
-  })
+  }
 
 export const change =
-  (settings:Settings):Task<Never, Result<Error, Settings>> =>
-  new Task((succeed, fail) => {
+  (settings:Settings):Task<Never, Result<Error, Settings>> => {
     if (navigator.mozSettings != null) {
-      const lock = navigator.mozSettings.createLock()
-      lock
-        .set(settings)
-        .then(always(ok(settings)), error)
-        .then(succeed, fail)
+      const {mozSettings} = navigator
+      return new Task((succeed, fail) => {
+        mozSettings
+          .createLock()
+          .set(settings)
+          .then(always(ok(settings)), error)
+          .then(succeed, fail)
+      })
     } else {
-      Promise
-        .resolve(error(NotSupported))
-        .then(succeed, fail)
+      console.log('settings-change', settings)
+      return Runtime.request('settings', 'changed', {
+        type: 'change',
+        settings
+      }).map(ok).recover(error)
     }
-  })
+  }
 
 export const observe =
-  (namePattern:string):Task<Never, Result<Error, Settings>> =>
-  new Task((succeed, fail) => {
-    const onChange = change => {
+  (namePattern:string):Task<Never, Result<Error, Settings>> => {
+  if (navigator.mozSettings != null) {
+    const {mozSettings} = navigator
+    return new Task((succeed, fail) => {
+      const onChange = change => {
+        if (namePattern === '*') {
+          mozSettings.removeEventListener('settingchange', onChange)
+        } else {
+          mozSettings.removeObserver(namePattern, onChange)
+        }
+
+        succeed(ok({[change.settingName]: change.settingValue}))
+      }
+
       if (navigator.mozSettings) {
         if (namePattern === '*') {
-          navigator.mozSettings.removeEventListener('settingchange', onChange)
+          mozSettings.addEventListener('settingchange', onChange)
         } else {
-          navigator.mozSettings.removeObserver(namePattern, onChange)
+          mozSettings.addObserver(namePattern, onChange)
         }
-      }
-
-      succeed(ok({[change.settingName]: change.settingValue}))
-    }
-
-    if (navigator.mozSettings) {
-      if (namePattern === '*') {
-        navigator.mozSettings.addEventListener('settingchange', onChange)
       } else {
-        navigator.mozSettings.addObserver(namePattern, onChange)
+        succeed(error(NotSupported))
       }
-    } else {
-      fail(error(NotSupported))
-    }
-  })
+    })
+  } else {
+    return Runtime.request('settings', 'changed', {
+      type: 'observe',
+      name:namePattern
+    })
+    .map(ok)
+    .recover(error)
+  }
+}
+
 
 export const init =
   (names:Array<Name>):[Model, Effects<Action>] =>
   [ null,
-   Effects
-    .perform(fetch(names))
-    .map(Fetched)
+   Effects.perform(fetch(names).map(Fetched))
   ]
 
 const updateSettings = (model, settings) =>
@@ -154,31 +175,32 @@ const updateSettings = (model, settings) =>
     ),
    Effects.batch(Object
       .keys(settings)
-      .map(name => Effects.perform(observe(name)).map(Updated))
+      .map(name => Effects.perform(observe(name).map(Updated)))
     )
   ]
 
 const report = (model, error) => {
   console.error('Unhandled error occured ', error)
-  return [model, Effects.none]
+  return nofx(model)
 }
 
 export const update =
-  (model:Model, action:Action):[Model, Effects<Action>] =>
-  (action.type === 'Fetched'
-  ? (action.result.isOk
-    ? updateSettings(model, action.result.value)
-    : report(model, action.result.error)
+  (model:Model, action:Action):[Model, Effects<Action>] => {
+  return (action.type === 'Fetched'
+    ? (action.result.isOk
+      ? updateSettings(model, action.result.value)
+      : report(model, action.result.error)
+      )
+    : action.type === 'Updated'
+    ? (action.result.isOk
+      ? updateSettings(model, action.result.value)
+      : report(model, action.result.error)
+      )
+    : action.type === 'Changed'
+    ? (action.result.isOk
+      ? updateSettings(model, action.result.value)
+      : report(model, action.result.error)
+      )
+    : Unknown.update(model, action)
     )
-  : action.type === 'Updated'
-  ? (action.result.isOk
-    ? updateSettings(model, action.result.value)
-    : report(model, action.result.error)
-    )
-  : action.type === 'Changed'
-  ? (action.result.isOk
-    ? updateSettings(model, action.result.value)
-    : report(model, action.result.error)
-    )
-  : Unknown.update(model, action)
-  )
+  }

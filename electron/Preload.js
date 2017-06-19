@@ -1,4 +1,5 @@
-window.electron = global.require('electron')
+window.electron = require('electron')
+window.electronPreload = `file://${module.filename}`
 window.onerror = null
 delete global.__dirname
 delete global.__filename

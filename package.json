@@ -14,7 +14,7 @@
   "browser": {
     "@driver": "./src/driver/virtual-dom/index.js"
   },
-  "main": "./main.js",
+  "main": "./electron/Main.js",
   "scripts": {
     "develop": "gulp develop",
     "start": "gulp live",
@@ -37,7 +37,8 @@
     "querystring": "0.2.0",
     "reflex": "0.4.1",
     "reflex-virtual-dom-driver": "0.2.3",
-    "tinycolor2": "1.1.2"
+    "tinycolor2": "1.1.2",
+    "uuid": "3.0.1"
   },
   "devDependencies": {
     "babel-cli": "6.10.1",

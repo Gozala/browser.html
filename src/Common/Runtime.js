@@ -78,8 +78,7 @@ export const isElectron:boolean =
 export const never:Task<Never, any> =
   new Task(succeed => void (0))
 
-export const respond = <message>
-  (message:message):Task<Never, message> =>
+export const respond = <message> (message:message):Task<Never, message> =>
   new Task((succeed, fail) =>
     void (Promise
       .resolve(message)
@@ -87,11 +86,10 @@ export const respond = <message>
     )
   )
 
-export const send = <message>
-  (message:message):Task<Never, void> =>
+export const send = <message> (address:string, message:message):Task<Never, void> =>
   new Task(succeed => {
     if (global.electron != null) {
-      global.electron.ipcRenderer.send('inbox', message)
+      global.electron.ipcRenderer.send(address, message)
     } else {
       window.dispatchEvent(new window.CustomEvent('mozContentEvent', {
         bubbles: true,
@@ -103,22 +101,18 @@ export const send = <message>
     succeed(void (0))
   })
 
-export const receive = <message>
-  (type:string):Task<Never, message> =>
-  new Task(succeed => {
-    const onMessage = ({detail: message}) => {
-      if (message.type === type) {
-        window.removeEventListener('mozChromeEvent', onMessage)
-        succeed(message)
-      }
+export const receive = <message> (address:string, type:string):Task<Never, message> => {
+  return new Task(function(succeed) {
+    const onMessage = (event, message) => {
+      succeed(message)
     }
-    window.addEventListener('mozChromeEvent', onMessage)
+    global.electron.ipcRenderer.once(`${address}/${type}`, onMessage)
   })
+}
 
 export const request = <request, response>
-  (type:string, message:request):Task<Never, response> =>
-  send(message)
-  .chain(always(receive(type)))
+  (address:string, type:string, message:request):Task<Never, response> =>
+  send(address, message).chain(_ => receive(address, type))
 
 export const quit:Task<Never, Result<Error, void>> =
   (isServo
@@ -130,7 +124,7 @@ export const quit:Task<Never, Result<Error, void>> =
       succeed(error(reason))
     }
   })
-  : send({type: 'shutdown-application'})
+  : send('application', {type: 'shutdown-application'})
     // We do not actually close a window but rather we shut down an app, there
     // will be nothing handling a response so we don"t even bother with it.
     .chain(always(never))
@@ -146,20 +140,20 @@ export const close:Task<Never, Result<Error, void>> =
       succeed(error(reason))
     }
   })
-  : send({type: 'close-native-window'})
+  : send('window', {type: 'close-native-window'})
     // We do not actually close a window but rather we shut down an app, there
     // will be nothing handling a response so we don"t even bother with it.
     .chain(always(never))
   )
 
 export const minimize:Task<Never, Result<Error, void>> =
-  send({type: 'minimize-native-window'})
+  send('window', {type: 'minimize-native-window'})
   // We do not get event back when window is minimized so we just pretend
   // that we got it after a tick.
   .chain(always(respond(ok())))
 
 export const toggleFullscreen:Task<Never, Result<Error, void>> =
-  send({type: 'toggle-fullscreen-native-window'})
+  send('window', {type: 'toggle-fullscreen-native-window'})
   // We do not get event back when window is maximized so we just pretend
   // that we got it after a tick.
   .chain(always(respond(ok())))
@@ -175,11 +169,11 @@ export const reload:Task<Never, Result<Error, void>> =
   })
 
 export const restart:Task<Never, Result<Error, void>> =
-  send({type: 'restart'})
+  send('application', {type: 'restart'})
   .chain(always(respond(error(Error('Unsupported runtime task "restart" was triggered')))))
 
 export const cleanRestart:Task<Never, Result<Error, void>> =
-  send({type: 'clear-cache-and-restart'})
+  send('application', {type: 'clear-cache-and-restart'})
   .chain(always(never))
 
 export const cleanReload:Task<Never, Result<Error, void>> =
@@ -192,7 +186,7 @@ export const cleanReload:Task<Never, Result<Error, void>> =
       succeed(error(reason))
     }
   })
-  : send({type: 'clear-cache-and-reload'})
+  : send('application', {type: 'clear-cache-and-reload'})
     .chain(always(never))
   )
 
