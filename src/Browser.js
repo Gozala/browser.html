@@ -132,7 +132,7 @@ export const init = ():[Model, Effects<Action>] => {
        navigatorsFx.map(NavigatorsAction),
        issueReporterFx.map(IssueReporterAction),
        Effects
-        .perform(Runtime.receive('mozbrowseropenwindow'))
+        .perform(Runtime.receive('chrome', 'mozbrowseropenwindow'))
         .map(OpenURL)
       ]
     )

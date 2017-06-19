@@ -7,7 +7,7 @@
 import {Style, StyleSheet} from '../../Common/Style'
 import {html, thunk, forward, Effects} from 'reflex'
 import {compose} from '../../Lang/Functional'
-import {merge, always, batch} from '../../Common/Prelude'
+import {merge, always, batch, nofx} from '../../Common/Prelude'
 import {cursor} from '../../Common/Cursor'
 import {ok, error} from '../../Common/Result'
 import * as Unknown from '../../Common/Unknown'
@@ -28,13 +28,14 @@ export type Action =
   | { type: "Edit" }
   | { type: "Abort" }
   | { type: "Submit" }
+  | { type: "Commit" }
   | { type: "Save", save: Value }
   | { type: "Change", change: Value }
   | { type: "TextInput", textInput: TextInput.Action }
 
 const TextInputAction =
   (action:TextInput.Action):Action =>
-  (action.type === 'Blur'
+  ( action.type === 'Focus' && action.focus.type === 'Blur'
   ? Abort
   : { type: 'TextInput',
      textInput: action
@@ -44,6 +45,7 @@ const TextInputAction =
 export const Edit:Action = { type: 'Edit' }
 export const Abort:Action = { type: 'Abort' }
 export const Submit:Action = { type: 'Submit' }
+const Commit = { type: 'Commit' }
 
 const Save =
   action =>
@@ -99,24 +101,31 @@ const abort = model =>
    [ DisableInput,
      ChangeInput(model.value == null
       ? ''
-      : JSON.stringify(model.value)
+      : JSON.stringify(model.value),
+      model.input.edit.selection
       )
     ]
   )
 
 const submit = model => {
   const change = parseInput(model.input.edit.value)
-  const result =
-    (change.isOk
-    ? [ merge(model, {isEditing: false}),
-       Effects.receive(Save(change.value))
-      ]
-    : [ merge(model, {isValid: false}),
-       Effects.none
-      ]
-    )
+  const state = change.isOk
+    ? merge(model, {isEditing: false, isValid:true})
+    : merge(model, {isValid: false})
+  const actions = change.isOk
+    ? [DisableInput, Commit]
+    : []
+  
+  return batch(update, state, actions)
+}
 
-  return result
+const commit = model => {
+  const change = parseInput(model.input.edit.value)
+  if (change.isOk) {
+    return [model, Effects.receive(Save(change.value))]
+  } else {
+    return nofx(model)
+  }
 }
 
 const change = (model, value) =>
@@ -131,7 +140,8 @@ const change = (model, value) =>
    [ DisableInput,
      ChangeInput(value == null
       ? '""'
-      : JSON.stringify(value)
+      : JSON.stringify(value),
+      model.input.edit.selection
       )
     ]
   )
@@ -160,6 +170,8 @@ export const update =
   ? abort(model)
   : action.type === 'Submit'
   ? submit(model)
+  : action.type === 'Commit'
+  ? commit(model)
   : action.type === 'Save'
   ? change(model, action.save)
   : action.type === 'Change'
@@ -255,7 +267,8 @@ const viewInput = TextInput.view('input',
          backgroundColor: 'rgba(255,255,255,0.2)',
          color: 'rgba(255,255,255,0.7)',
          borderRadius: '5px 5px 5px 5px',
-         padding: 5
+         padding: 5,
+         outline: 'none'
         },
        enabled:
        {

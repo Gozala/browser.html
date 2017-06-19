@@ -5,7 +5,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import {html, thunk, forward, Effects} from 'reflex'
-import {merge, batch} from '../../Common/Prelude'
+import {merge, batch, nofx} from '../../Common/Prelude'
 import {Style, StyleSheet} from '../../Common/Style'
 import * as Settings from '../../Common/Settings'
 import * as Unknown from '../../Common/Unknown'
@@ -106,15 +106,17 @@ export const init = ():[Model, Effects<Action>] => {
     { settings: {}
     }
 
-  const fx = Effects.batch([ Effects
-        .perform(Settings.fetch(['*']))
-        .map(Fetched),
-       Effects
-        .perform(Settings.observe('*'))
-        .map(Changed)
-      ]
-    )
+  const fx = Effects.batch([ 
+    Effects
+      .perform(Settings.fetch(['*']))
+      .map(Fetched),
+    Effects
+      .perform(Settings.observe('*'))
+      .map(Changed)
+    ]
+  )
 
+  console.log('init')
   return [model, fx]
 }
 
@@ -188,7 +190,7 @@ const changed =
   batch(update,
    model,
    [ Change(result),
-     Observe
+     result.isOk ? Observe : { type: "NoOp" }
     ]
   )
 
@@ -209,30 +211,29 @@ const updateSettingByName = (model, name, action) => {
 }
 
 export const update =
-  (model:Model, action:Action):[Model, Effects<Action>] =>
-  (action.type === 'Save'
-  ? save(model, action.save)
-
-  : action.type === 'Saved'
-  ? change(model, action.saved)
-
-  : action.type === 'Fetched'
-  ? change(model, action.fetched)
-
-  : action.type === 'Changed'
-  ? changed(model, action.changed)
-
-  : action.type === 'Change'
-  ? change(model, action.change)
-
-  : action.type === 'Observe'
-  ? observe(model)
-
-  : action.type === 'Setting'
-  ? updateSettingByName(model, action.name, action.setting)
-
-  : Unknown.update(model, action)
-  )
+  (model:Model, action:Action):[Model, Effects<Action>] => {
+    console.log('update', action)
+    switch (action.type) {
+      case 'Save':
+        return save(model, action.save)
+      case 'Saved':
+        return change(model, action.saved)
+      case 'Fetched':
+        return change(model, action.fetched)
+      case 'Changed':
+        return changed(model, action.changed)
+      case 'Change':
+        return change(model, action.change)
+      case 'Observe':
+        return observe(model)
+      case 'Setting':
+        return updateSettingByName(model, action.name, action.setting)
+      case 'NoOp':
+        return nofx(model)
+      default:
+        return Unknown.update(model, action)
+    }
+}
 
 const styleSheet = StyleSheet.create({ invalid:
       { textDecoration: 'underline wavy red'
@@ -249,13 +250,15 @@ const styleSheet = StyleSheet.create({ invalid:
        top: '0px',
        left: '0px',
        width: '100%',
+       height: '100%',
        overflow: 'auto'
       },
      row:
       { borderBottom: '1px dotted rgba(255, 255, 255, 0.2)',
        lineHeight: '25px',
        whiteSpace: 'nowrap',
-       padding: '0 5px'
+       padding: '0 5px',
+       display: 'flex'
       },
      cell:
       { verticalAlign: 'middle',
@@ -265,11 +268,13 @@ const styleSheet = StyleSheet.create({ invalid:
        overflow: 'hidden'
       },
      name:
-      { minWidth: '300px'
+      { minWidth: '300px',
+        flex: 1,
       },
      value:
-      { width: '100vh',
-       padding: '0 0 0 0'
+      { width: '100%',
+        flex: 4,
+        padding: '0 0 0 0'
       }
     }
   )
@@ -307,8 +312,7 @@ export const view =
         )
       ),
      html.meta({ name: 'theme-color',
-         content: `${styleSheet.base.backgroundColor}|${styleSheet.base.color}`
-        }
-      )
+        content: `${styleSheet.base.backgroundColor}|${styleSheet.base.color}`
+      }, [])
     ]
   )

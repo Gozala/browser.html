@@ -190,7 +190,7 @@ export const view =
      onFocus: onFocus(address),
      onBlur: onBlur(address),
      style: Style(styleSheet.base,
-       (model.isDisabled
+       (model.control.isDisabled
         ? styleSheet.disabled
         : styleSheet.enabled
         ),
