@@ -2,6 +2,7 @@
 
 import {Task, node, forward} from 'reflex'
 import * as Style from '../../../../Common/Style'
+import * as URL from '../../../../Common/URLHelper'
 import {on, setting} from '@driver'
 import {always} from '../../../../Common/Prelude'
 
@@ -13,6 +14,8 @@ const Blur = always({ type: 'Blur' })
 const Focus = always({ type: 'Focus' })
 const Close = always({ type: 'Close' })
 const DocumentFirstPaint = always({ type: 'DocumentFirstPaint' })
+
+const preloadScript:string =  global.electronPreload
 
 export const view =
   (styleSheet:{ base: Style.Rules },
@@ -41,7 +44,11 @@ export const view =
         : null
         )
       ),
-
+      attributes: {
+        preload: URL.isPrivileged(model.navigation.url)
+          ? preloadScript
+          : ''
+      },
     // Events
 
       onBlur: forward(address, Blur),
