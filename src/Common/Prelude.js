@@ -189,6 +189,10 @@ export const nofx = <model, action>
   (state:model):[model, Effects<action>] =>
   [ state, Effects.none ]
 
+export const fx = <model, action>
+  (state:model, effects:Array<Effects<action>>):[model, Effects<action>] =>
+  [ state, Effects.batch(effects) ]
+
 export const appendFX = <model, action>
   (extraFX: Effects<action>
   , [model, fx]:[model, Effects<action>]

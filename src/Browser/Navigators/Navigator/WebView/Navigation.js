@@ -130,7 +130,8 @@ export const canGoBack =
   (ref:Ref.Model):Task<Never, Result<Error, boolean>> =>
   Ref
   .deref(ref)
-  .chain(elementCanGoBack);
+  .chain(elementCanGoBack)
+  .recover(error)
 
 const elementCanGoBack =
   target =>
@@ -150,10 +151,11 @@ export const canGoForward =
   (ref:Ref.Model):Task<Never, Result<Error, boolean>> =>
   Ref
   .deref(ref)
-  .chain(elementCanGoForward);
+  .chain(elementCanGoForward)
+  .recover(error)
 
 const elementCanGoForward =
-  target =>
+  (target):Task<Error, Result<Error, boolean>> =>
   new Task((succeed, fail) => {
     if (typeof(target.getCanGoForward) !== "function") {
       succeed(error(Error(`.getCanGoForward is not supported by runtime`)))
@@ -169,7 +171,7 @@ const elementCanGoForward =
 const invoke =
   name => {
     const elementInvoke = <value>
-      (element:HTMLElement):Task<Never, Result<Error, value>> =>
+      (element:HTMLElement):Task<Error, Result<Error, value>> =>
       new Task((succeed, fail) => {
         try {
           // @FlowIgnore: We know that method may not exist.
@@ -184,6 +186,7 @@ const invoke =
       Ref
       .deref(ref)
       .chain(elementInvoke)
+      .recover(error)
 
     return task
   }

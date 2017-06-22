@@ -91,23 +91,25 @@ const createSnapshot = <model, action>
     try {
       succeed(JSON.stringify(window.application.model.value.debuggee))
     } catch (error) {
-      fail(error)
+      fail((error:Error))
     }
   })
 
 const printSnapshot = <model, action>
   (model:Model<model, action>):Step<model, action> =>
-  [ merge(model, { status: 'Pending', description: 'Printing...' }),
-   Effects.batch([ Effects.perform(createSnapshot(model)
-          .chain(snapshot => Unknown.log(`\n\n${snapshot}\n\n`))
-          .map(ok)
-          .capture(reason => Task.succeed(error(reason)))
-        )
-        .map(NoOp),
-       Effects.perform(Task.sleep(200))
-        .map(PrintedSnapshot)
-      ]
-    )
+  [
+    merge(model, { status: 'Pending', description: 'Printing...' }),
+    Effects.batch([
+        Effects
+          .perform(createSnapshot(model)
+                    .capture(error => Unknown.error(error))
+                    .chain(snapshot => Unknown.log(`\n\n${snapshot}\n\n`)))
+          .map(NoOp),
+        Effects
+          .perform(Task.sleep(200))
+          .map(PrintedSnapshot)
+        ]
+      )
   ]
 
 const printedSnapshot = <model, action>
@@ -122,7 +124,7 @@ const publishSnapshot = <model, action>
    Effects.perform(createSnapshot(model)
       .chain(uploadSnapshot)
       .map(ok)
-      .capture(reason => Task.succeed(error(reason)))
+      .recover(error)
     )
     .map(PublishedSnapshot)
   ]

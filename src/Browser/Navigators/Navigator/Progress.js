@@ -337,6 +337,9 @@ const standalone =
 
         window.requestAnimationFrame(onTick);
       }))
+      .recover(reason => {
+        console.error(reason)
+      })
   , connect:
       (ref, time) =>
       Ref
@@ -345,6 +348,9 @@ const standalone =
         // @FlowIgnore
         element.connectTime = time;
       }))
+      .recover(reason => {
+        console.error(reason)
+      })
   , loadEnd:
       (ref, time) =>
       Ref
@@ -353,6 +359,9 @@ const standalone =
         // @FlowIgnore
         element.loadEnd = time;
       }))
+      .recover(reason => {
+        console.error(reason)
+      })
   , drawLoading:
       (element, time) => {
         const value =
