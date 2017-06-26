@@ -7,7 +7,7 @@ import * as Runtime from '../Common/Runtime'
 import * as Unknown from '../Common/Unknown'
 import * as Style from '../Common/Style'
 
-import type {Address, Never, DOM} from 'reflex'
+import type {Address, DOM} from 'reflex'
 import type {Result} from '../Common/Result'
 
 export type Model <model, action> = // eslint-disable-line no-unused-vars
@@ -86,7 +86,7 @@ const loadSnapshot = <state, message>
   ]
 
 const fetchSnapshot = <model>
-  (uri:string):Task<Never, Result<Error, model>> => new Task(succeed => {
+  (uri:string):Task<empty, Result<Error, model>> => new Task(succeed => {
     const request = new window.XMLHttpRequest({mozSystem: true})
     request.open('GET',
      uri,

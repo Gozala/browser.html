@@ -10,7 +10,6 @@ import {merge, always, nofx} from '../Common/Prelude'
 import {Effects, Task} from 'reflex'
 import * as Runtime from '../Common/Runtime'
 
-import type {Never} from 'reflex'
 import type {Result} from './Result'
 
 export type Name = string
@@ -80,7 +79,7 @@ const merges =
   )
 
 export const fetch =
-  (names:Array<Name>):Task<Never, Result<Error, Settings>> => {
+  (names:Array<Name>):Task<empty, Result<Error, Settings>> => {
     if (navigator.mozSettings != null) {
       const mozSettings:any = navigator.mozSettings
       return new Task((succeed, fail) => {
@@ -104,7 +103,7 @@ export const fetch =
   }
 
 export const change =
-  (settings:Settings):Task<Never, Result<Error, Settings>> => {
+  (settings:Settings):Task<empty, Result<Error, Settings>> => {
     if (navigator.mozSettings != null) {
       const mozSettings:any = navigator.mozSettings
       return new Task((succeed, fail) => {
@@ -124,7 +123,7 @@ export const change =
   }
 
 export const observe =
-  (namePattern:string):Task<Never, Result<Error, Settings>> => {
+  (namePattern:string):Task<empty, Result<Error, Settings>> => {
   if (navigator.mozSettings != null) {
     const mozSettings:any = navigator.mozSettings
     return new Task((succeed, fail) => {

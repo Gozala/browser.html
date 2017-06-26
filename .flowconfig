@@ -5,7 +5,9 @@
 .*/node_modules/babel-core/.*
 .*/node_modules/babel-plugin.*
 .*/node_modules/tap/.*
-.*/node_modules/reflex-virtual-dom-driver/examlpes/.*
+.*/node_modules/reflex-virtual-dom-driver/examples/.*
+.*/node_modules/documentation/.*
+.*/reflex-virtual-dom-driver/examples/.*
 
 [libs]
 

@@ -11,7 +11,6 @@ import * as Unknown from '../../../../Common/Unknown'
 import * as Ref from '../../../../Common/Ref';
 
 
-import type {Never} from "reflex";
 import type {Result} from '../../../../Common/Result';
 import type {ID, URI, Time} from "../../../../Common/Prelude"
 
@@ -127,7 +126,7 @@ const WentForward = result =>
   );
 
 export const canGoBack =
-  (ref:Ref.Model):Task<Never, Result<Error, boolean>> =>
+  (ref:Ref.Model):Task<empty, Result<Error, boolean>> =>
   Ref
   .deref(ref)
   .chain(elementCanGoBack)
@@ -148,7 +147,7 @@ const elementCanGoBack =
   });
 
 export const canGoForward =
-  (ref:Ref.Model):Task<Never, Result<Error, boolean>> =>
+  (ref:Ref.Model):Task<empty, Result<Error, boolean>> =>
   Ref
   .deref(ref)
   .chain(elementCanGoForward)
@@ -182,7 +181,7 @@ const invoke =
       })
 
     const task = <value>
-      (ref:Ref.Model):Task<Never, Result<Error, value>> =>
+      (ref:Ref.Model):Task<empty, Result<Error, value>> =>
       Ref
       .deref(ref)
       .chain(elementInvoke)

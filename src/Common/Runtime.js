@@ -4,7 +4,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import type {Never} from 'reflex'
 import type {Result} from '../Common/Result'
 
 import {always} from '../Common/Prelude'
@@ -75,11 +74,11 @@ export const isElectron:boolean =
   .toLowerCase()
   .indexOf(' electron') !== -1
 
-export const never:Task<Never, any> =
+export const never:Task<empty, any> =
   new Task(succeed => void (0))
 
 export const respond = <message>
-  (value:message):Task<Never, message> =>
+  (value:message):Task<empty, message> =>
   new Task((succeed, fail) =>
     void (Promise
       .resolve(value)
@@ -88,7 +87,7 @@ export const respond = <message>
   )
 
 export const send = <message>
-  (detail:message):Task<Never, void> =>
+  (detail:message):Task<empty, void> =>
   new Task(succeed => {
     if (global.electron != null) {
       global.electron.ipcRenderer.send('inbox', detail)
@@ -104,7 +103,7 @@ export const send = <message>
   })
 
 export const receive = <message>
-  (type:string):Task<Never, message> =>
+  (type:string):Task<empty, message> =>
   new Task(succeed => {
     const onMessage = ({detail: message}) => {
       if (message.type === type) {
@@ -116,11 +115,11 @@ export const receive = <message>
   })
 
 export const request = <request, response>
-  (address:string, type:string, message:request):Task<Never, response> =>
+  (address:string, type:string, message:request):Task<empty, response> =>
   send(message)
   .chain(always(receive(type)))
 
-export const quit:Task<Never, Result<Error, void>> =
+export const quit:Task<empty, Result<Error, void>> =
   (isServo
   ? new Task((succeed, fail) => {
     try {
@@ -136,7 +135,7 @@ export const quit:Task<Never, Result<Error, void>> =
     .chain(always(never))
   )
 
-export const close:Task<Never, Result<Error, void>> =
+export const close:Task<empty, Result<Error, void>> =
   ((isServo || isElectron)
   ? new Task((succeed, fail) => {
     try {
@@ -152,19 +151,19 @@ export const close:Task<Never, Result<Error, void>> =
     .chain(always(never))
   )
 
-export const minimize:Task<Never, Result<Error, void>> =
+export const minimize:Task<empty, Result<Error, void>> =
   send({type: 'minimize-native-window'})
   // We do not get event back when window is minimized so we just pretend
   // that we got it after a tick.
   .chain(always(respond(ok())))
 
-export const toggleFullscreen:Task<Never, Result<Error, void>> =
+export const toggleFullscreen:Task<empty, Result<Error, void>> =
   send({type: 'toggle-fullscreen-native-window'})
   // We do not get event back when window is maximized so we just pretend
   // that we got it after a tick.
   .chain(always(respond(ok())))
 
-export const reload:Task<Never, Result<Error, void>> =
+export const reload:Task<empty, Result<Error, void>> =
   new Task(succeed => {
     try {
       window.location.reload()
@@ -174,15 +173,15 @@ export const reload:Task<Never, Result<Error, void>> =
     }
   })
 
-export const restart:Task<Never, Result<Error, void>> =
+export const restart:Task<empty, Result<Error, void>> =
   send({type: 'restart'})
   .chain(always(respond(error(Error('Unsupported runtime task "restart" was triggered')))))
 
-export const cleanRestart:Task<Never, Result<Error, void>> =
+export const cleanRestart:Task<empty, Result<Error, void>> =
   send({type: 'clear-cache-and-restart'})
   .chain(always(never))
 
-export const cleanReload:Task<Never, Result<Error, void>> =
+export const cleanReload:Task<empty, Result<Error, void>> =
   (isServo
   ? new Task(succeed => {
     try {

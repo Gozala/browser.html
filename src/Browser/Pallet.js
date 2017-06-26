@@ -7,8 +7,6 @@
 import tinycolor from 'tinycolor2'
 import {Task} from 'reflex'
 import {getDomainName} from '../Common/URLHelper'
-
-import type {Never} from 'reflex'
 import type {URI} from '../Common/Prelude'
 
 export type {URI}
@@ -77,7 +75,7 @@ export const create =
   )
 
 export const requestCuratedColor =
-  (uri:URI):Task<Never, ?Theme> =>
+  (uri:URI):Task<empty, ?Theme> =>
   new Task((succeed, fail) => {
     const hostname = getDomainName(uri)
     Promise.resolve(hostname == null

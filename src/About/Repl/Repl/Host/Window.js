@@ -9,7 +9,6 @@ import {merge, batch, tag, tagged} from '../../../../Common/Prelude'
 import {ok, error} from '../../../../Common/Result'
 
 import type {ID, EvaluationResult} from '../Host'
-import type {Never} from 'reflex'
 
 const DELETE = new String('delete')
 const executeWith = (context, execute) => {
@@ -63,7 +62,7 @@ const evalContext =
   }
 
 export const evaluate =
-  (id:ID, code:string):Task<Never, EvaluationResult> =>
+  (id:ID, code:string):Task<empty, EvaluationResult> =>
   new Task((succeed, fail) => void (new Promise((resolve, reject) => {
     try {
       const out = executeWith(evalContext, () => window.eval(code))

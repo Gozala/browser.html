@@ -5,22 +5,21 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import {Effects, Task} from 'reflex'
-import type {Never} from 'reflex'
 
 export const warn = <action>
-  (...params:Array<any>):Task<Never, action> =>
+  (...params:Array<any>):Task<empty, action> =>
   new Task((succeed, fail) => {
     console.warn(...params)
   })
 
 export const log = <action>
-  (...params:Array<any>):Task<Never, action> =>
+  (...params:Array<any>):Task<empty, action> =>
   new Task((succeed, fail) => {
     console.log(...params)
   })
 
 export const error = <action>
-  (...params:Array<any>):Task<Never, action> =>
+  (...params:Array<any>):Task<empty, action> =>
   new Task((succeed, fail) => {
     console.error(...params)
   })

@@ -10,7 +10,6 @@ import * as Focusable from '../../../../Common/Focus'
 import * as Ref from '../../../../Common/Ref'
 
 import type {Result} from '../../../../Common/Result'
-import type {Never} from 'reflex'
 import type {Float} from '../../../../Common/Prelude'
 
 export type Action =
@@ -177,7 +176,7 @@ const blurElement =<value>
 
 // Reports error as a warning in a console.
 const warn = <value>
-  (error:Error):Task<Never, value> =>
+  (error:Error):Task<empty, value> =>
   new Task((succeed, fail) => {
     console.warn(error)
   })

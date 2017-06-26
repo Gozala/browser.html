@@ -9,7 +9,7 @@ import {merge, nofx} from '../Common/Prelude'
 import * as Unknown from '../Common/Unknown'
 import {indexOfOffset} from '../Common/Selector'
 
-import type {Address, DOM, Never} from 'reflex'
+import type {Address, DOM} from 'reflex'
 export type Integer = number
 export type ID = string
 
@@ -408,7 +408,7 @@ export const renderCards = <message, state, flags>
   )
 
 const warn = <message>
-  (input:message):Task<Never, any> =>
+  (input:message):Task<empty, any> =>
   new Task((succeed, fail) => {
     console.warn(input)
   })

@@ -4,7 +4,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import type {Address, Task, Never} from "reflex"
+import type {Address, Task} from "reflex"
 
 export {Renderer} from "reflex-virtual-dom-driver"
 
@@ -43,7 +43,7 @@ type Selection =
 declare export function selection (value:Selection):Property
 
 type Setter <data, element:HTMLElement> =
-  (target:element, value:data) => Task<Never, void>
+  (target:element, value:data) => Task<empty, void>
 
 declare export function setting <element:HTMLElement, data>
   ( setter:Setter<data, element>
