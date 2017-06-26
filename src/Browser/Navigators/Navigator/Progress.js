@@ -6,7 +6,7 @@
 
 
 import {Effects, Task, html} from 'reflex';
-import {ease, easeOutQuart, float} from 'eased';
+import {ease, easeOutQuart, float} from 'easing.flow';
 import * as Style from '../../../Common/Style';
 import {always, nofx} from '../../../Common/Prelude';
 import * as Unknown from '../../../Common/Unknown';
@@ -399,7 +399,7 @@ const standalone =
 
 
 export const view =
-  (model:Model):DOM =>
+  (model:Model, address:Address<Action>):DOM =>
   ( Runtime.isServo
   ? PolyfillView.view(model.ref, model.value)
   : ProgressView.view(model.ref, model.value)

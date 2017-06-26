@@ -36,15 +36,15 @@ const Snapshot = <model, action>
     }
   )
 
-const Replay = <model, action>
-  (model:model):Action<model, action> =>
+const Replay = <state, message>
+  (model:state):Action<state, message> =>
   ({ type: 'Replay',
      replay: model
     }
   )
 
-export const init = <model, action, flags>
-  (flags:flags):Step<model, action> =>
+export const init = <state, message, options>
+  (flags:options):Step<state, message> =>
   ([ { flags,
        snapshotURI: String(Runtime.env.replay),
        error: null,
@@ -54,10 +54,10 @@ export const init = <model, action, flags>
     ]
   )
 
-export const update = <model, action>
-  (model:Model<model, action>,
-   action:Action<model, action>
-  ):Step<model, action> =>
+export const update = <state, message>
+  (model:Model<state, message>,
+   action:Action<state, message>
+  ):Step<state, message> =>
   (action.type === 'Load'
   ? loadSnapshot(model)
   : action.type === 'Snapshot'
@@ -67,10 +67,10 @@ export const update = <model, action>
   : Unknown.update(model, action)
   )
 
-const receiveSnapshot = <model, action>
-  (model:Model<model, action>,
-   result:Result<Error, model>
-  ):Step<model, action> =>
+const receiveSnapshot = <state, message>
+  (model:Model<state, message>,
+   result:Result<Error, state>
+  ):Step<state, message> =>
   (result.isOk
   ? [ merge(model, {replayed: true}),
      Effects.receive(Replay(result.value))
@@ -78,8 +78,8 @@ const receiveSnapshot = <model, action>
   : nofx(merge(model, {error: result.error}))
   )
 
-const loadSnapshot = <model, action>
-  (model:Model<model, action>):Step<model, action> =>
+const loadSnapshot = <state, message>
+  (model:Model<state, message>):Step<state, message> =>
   [ model,
    Effects.perform(fetchSnapshot(model.snapshotURI))
     .map(Snapshot)
@@ -107,9 +107,9 @@ const fetchSnapshot = <model>
       )
   })
 
-export const render = <model, action>
-  (model:Model<model, action>,
-   address:Address<Action<model, action>>
+export const render = <state, message>
+  (model:Model<state, message>,
+   address:Address<Action<state, message>>
   ):DOM =>
   html.dialog({ id: 'replay',
      style: Style.mix(styleSheet.base,
@@ -132,9 +132,9 @@ export const render = <model, action>
     ]
   )
 
-export const view = <model, action>
-  (model:Model<model, action>,
-   address:Address<Action<model, action>>
+export const view = <state, message>
+  (model:Model<state, message>,
+   address:Address<Action<state, message>>
   ):DOM =>
   thunk('replay',
    render,

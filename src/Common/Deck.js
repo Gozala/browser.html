@@ -82,11 +82,11 @@ export const init = <action, model, flags>
    Effects.none
   ]
 
-export const update = <action, model, flags>
-  (card:Card<action, model, flags>,
-   model:Model<model>,
-   action:Action<action, flags>
-  ):Transaction<Action<action, flags>, Model<model>> => {
+export const update = <message, state:{isSelected:boolean}, flags>
+  (card:Card<message, state, flags>,
+   model:Model<state>,
+   action:Action<message, flags>
+  ):Transaction<Action<message, flags>, Model<state>> => {
   switch (action.type) {
     case 'NoOp':
       return nofx(model)
@@ -109,12 +109,12 @@ export const update = <action, model, flags>
   }
 }
 
-const updateByID = <model, action, flags>
-  (api:Card<action, model, flags>,
-   model:Model<model>,
+const updateByID = <state, message, flags>
+  (api:Card<message, state, flags>,
+   model:Model<state>,
    id:ID,
-   action:action
-  ):Transaction<Action<action, flags>, Model<model>> => {
+   action:message
+  ):Transaction<Action<message, flags>, Model<state>> => {
   if (id in model.cards) {
     const [card, $card] = api.update(model.cards[id], action)
     const cards = merge(model.cards, {[id]: card})
@@ -131,11 +131,11 @@ const updateByID = <model, action, flags>
   }
 }
 
-export const open = <action, model, flags>
-  (api:Card<action, model, flags>,
-   model:Model<model>,
-   flags:flags
-  ):Transaction<Action<action, flags>, Model<model>> => {
+export const open = <message, state:{isSelected:boolean}, options>
+  (api:Card<message, state, options>,
+   model:Model<state>,
+   flags:options
+  ):Transaction<Action<message, options>, Model<state>> => {
   const id = `${model.nextID}`
   const [card, $card] = api.init(flags)
 
@@ -168,11 +168,11 @@ export const open = <action, model, flags>
   return [model3, fx3]
 }
 
-const closeByID = <action, model, flags>
-  (api:Card<action, model, flags>,
-   model:Model<model>,
+const closeByID = <message, state, flags>
+  (api:Card<message, state, flags>,
+   model:Model<state>,
    id:ID
-  ):Transaction<Action<action, flags>, Model<model>> => {
+  ):Transaction<Action<message, flags>, Model<state>> => {
   const [available, $available] =
       (model.selected === id
       ? selectBeneficiaryByID(api, model, id)
@@ -202,11 +202,11 @@ const closeByID = <action, model, flags>
   }
 }
 
-export const removeByID = <action, model, flags>
-  (card:Card<action, model, flags>,
-   model:Model<model>,
+export const removeByID = <message, state, flags>
+  (card:Card<message, state, flags>,
+   model:Model<state>,
    id:ID
-  ):Transaction<Action<action, flags>, Model<model>> => {
+  ):Transaction<Action<message, flags>, Model<state>> => {
   const [available, $available] =
       (model.selected === id
       ? selectBeneficiaryByID(card, model, id)
@@ -231,16 +231,16 @@ export const removeByID = <action, model, flags>
   }
 }
 
-const cardNotFound = <model, action>
-  (model:model, id:ID):[model, Effects<action>] =>
+const cardNotFound = <state, message>
+  (model:state, id:ID):[state, Effects<message>] =>
   nofx(model)
 
-export const selectByID = <action, model, flags>
-  (api:Card<action, model, flags>,
-   model:Model<model>,
+export const selectByID = <message, state, flags>
+  (api:Card<message, state, flags>,
+   model:Model<state>,
    id:ID,
    isSelectionChange:boolean=true
-  ):Transaction<Action<action, flags>, Model<model>> => {
+  ):Transaction<Action<message, flags>, Model<state>> => {
   if (id === model.selected) {
     return nofx(model)
   } else if (id in model.cards) {
@@ -272,11 +272,11 @@ export const selectByID = <action, model, flags>
   }
 }
 
-export const deselectByID = <action, model, flags>
-  (api:Card<action, model, flags>,
-   model:Model<model>,
+export const deselectByID = <message, state, flags>
+  (api:Card<message, state, flags>,
+   model:Model<state>,
    id:ID
-  ):Transaction<Action<action, flags>, Model<model>> => {
+  ):Transaction<Action<message, flags>, Model<state>> => {
   if (model.selected !== id) {
     return nofx(model)
   } else if (id in model.cards) {
@@ -300,11 +300,11 @@ export const deselectByID = <action, model, flags>
   }
 }
 
-const selectBeneficiaryByID = <action, model, flags>
-  (api:Card<action, model, flags>,
-   model:Model<model>,
+const selectBeneficiaryByID = <message, state, flags>
+  (api:Card<message, state, flags>,
+   model:Model<state>,
    id:ID
-  ):Transaction<Action<action, flags>, Model<model>> => {
+  ):Transaction<Action<message, flags>, Model<state>> => {
   const selected = beneficiaryOf(id, model.index)
   if (selected != null) {
     return selectByID(api, model, selected, false)
@@ -313,11 +313,11 @@ const selectBeneficiaryByID = <action, model, flags>
   }
 }
 
-export const selectByOffset = <action, model, flags>
-  (api:Card<action, model, flags>,
-   model:Model<model>,
+export const selectByOffset = <message, state, flags>
+  (api:Card<message, state, flags>,
+   model:Model<state>,
    offset:Integer
-  ):Transaction<Action<action, flags>, Model<model>> =>
+  ):Transaction<Action<message, flags>, Model<state>> =>
   (model.index.length === 0
   ? nofx(model)
   : model.selected == null
@@ -331,16 +331,16 @@ export const selectByOffset = <action, model, flags>
     )
   )
 
-export const selectNext =<action, model, flags>
-  (api:Card<action, model, flags>,
-   model:Model<model>
-  ):Transaction<Action<action, flags>, Model<model>> =>
+export const selectNext = <message, state, flags>
+  (api:Card<message, state, flags>,
+   model:Model<state>
+  ):Transaction<Action<message, flags>, Model<state>> =>
   selectByOffset(api, model, 1)
 
-export const selectPrevious = <action, model, flags>
-  (api:Card<action, model, flags>,
-   model:Model<model>
-  ):Transaction<Action<action, flags>, Model<model>> =>
+export const selectPrevious = <message, state, flags>
+  (api:Card<message, state, flags>,
+   model:Model<state>
+  ):Transaction<Action<message, flags>, Model<state>> =>
   selectByOffset(api, model, -1)
 
 const relativeOf =
@@ -392,10 +392,10 @@ const Tag = {
   }
 }
 
-export const renderCards = <action, model, flags>
-  (renderCard:(model:model, address:Address<action>) => DOM,
-   model:Model<model>,
-   address:Address<Action<action, flags>>
+export const renderCards = <message, state, flags>
+  (renderCard:(model:state, address:Address<message>) => DOM,
+   model:Model<state>,
+   address:Address<Action<message, flags>>
   ):Array<DOM> =>
   model
   .index
@@ -408,7 +408,7 @@ export const renderCards = <action, model, flags>
   )
 
 const warn = <message>
-  (message:message):Task<Never, any> =>
+  (input:message):Task<Never, any> =>
   new Task((succeed, fail) => {
-    console.warn(message)
+    console.warn(input)
   })

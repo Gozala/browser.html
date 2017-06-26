@@ -64,7 +64,6 @@ export const getBestIcon =
       }
     }
 
-  // @FlowIssue: Flow does not yet support spread on map #1566
     const bestFit = [...allSizes].reduce((prev, curr) => {
       if (!prev) {
         return curr
@@ -77,7 +76,6 @@ export const getBestIcon =
       }
     }, null)
 
-  // @FlowIssue: Flow does not yet support spread on set #1566
     const bestFitForOthers = [...others].reduce((prev, curr) => {
       if (!prev) {
         return curr

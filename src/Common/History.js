@@ -8,8 +8,8 @@ import {Task, Effects} from 'reflex'
 
 import type {Integer} from '../Common/Prelude'
 
-export const readTitle = <value, model:{title?:string}>
-  (model:model, fallback:value): string | value =>
+export const readTitle = <value, state:{title?:string}>
+  (model:state, fallback:value): string | value =>
   model.title ? model.title : fallback
 
 export const query = <action>

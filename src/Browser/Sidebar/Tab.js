@@ -64,7 +64,7 @@ const updateTarget =
   : transactOut
   )
 
-const updatePage = nofx
+const updatePage = (model, page) => nofx(model)
 
 const Out = TargetAction(Target.Out)
 const Over = TargetAction(Target.Over)

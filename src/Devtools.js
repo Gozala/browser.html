@@ -41,22 +41,22 @@ type Options <model, action, flags> =
    flags: flags
   }
 
-const TagRecord = <model, action>
-  (action:Record.Action<model, action>):Action<model, action> =>
+const TagRecord = <state, message>
+  (action:Record.Action<state, message>):Action<state, message> =>
   ({ type: 'Record',
      record: action
     }
   )
 
-const TagLog = <model, action>
-  (action:Log.Action<model, action>):Action<model, action> =>
+const TagLog = <state, message>
+  (action:Log.Action<state, message>):Action<state, message> =>
   ({ type: 'Log',
      log: action
     }
   )
 
-const TagReplay = <model, action>
-  (action:Replay.Action<model, action>):Action<model, action> =>
+const TagReplay = <state, message>
+  (action:Replay.Action<state, message>):Action<state, message> =>
   (action.type === 'Replay'
   ? { type: 'ReplayDebuggee',
      model: action.replay
@@ -66,16 +66,16 @@ const TagReplay = <model, action>
     }
   )
 
-const TagDebuggee = <model, action>
-  (action:action):Action<model, action> =>
+const TagDebuggee = <state, message>
+  (action:message):Action<state, message> =>
   (action == null
   ? { type: 'Debuggee',
      debuggee: action
     }
-  : /* ::typeof(action) === "object" && action != null && */ action.type === 'PrintSnapshot'
-  ? TagRecord(action)
-  : /* ::typeof(action) === "object" && action != null && */ action.type === 'PublishSnapshot'
-  ? TagRecord(action)
+  : typeof action === "object" && action != null && action.type === 'PrintSnapshot'
+  ? TagRecord({type: "PrintSnapshot"})
+  : typeof(action) === "object" && action != null && action.type === 'PublishSnapshot'
+  ? TagRecord({type: 'PublishSnapshot'})
   : { type: 'Debuggee',
      debuggee: action
     }
@@ -83,28 +83,28 @@ const TagDebuggee = <model, action>
 
 export const Persist = { type: 'Persist' }
 
-export const persist = <model, action>
-  (model:Model<model, action>
-  ):Step<model, action> =>
+export const persist = <state, message>
+  (model:Model<state, message>
+  ):Step<state, message> =>
   [ model,
    Effects.none
   ]
 
-export const restore = <model, action, flags>
-  ({Debuggee, flags}:Options<model, action, flags>
-  ):Step<model, action> =>
+export const restore = <state, message, options>
+  ({Debuggee, flags}:Options<state, message, options>
+  ):Step<state, message> =>
   [ merge(window.application.model.value, {Debuggee, flags}),
    Effects.none
   ]
 
-export const init = <model, action, flags>
-  ({Debuggee, flags}:Options<model, action, flags>):Step<model, action> => {
+export const init = <state, message, options>
+  ({Debuggee, flags}:Options<state, message, options>):Step<state, message> => {
   const disable = [null, Effects.none]
 
   const [record, recordFX] =
       (Runtime.env.record == null
       ? disable
-      : Record.init(flags)
+      : Record.init()
       )
 
   const [replay, replayFX] =
@@ -116,7 +116,7 @@ export const init = <model, action, flags>
   const [log, logFX] =
       (Runtime.env.log == null
       ? disable
-      : Log.init(flags)
+      : Log.init()
       )
 
   const [debuggee, debuggeeFX] = Debuggee.init(flags)
@@ -140,10 +140,10 @@ export const init = <model, action, flags>
   return [model, fx]
 }
 
-export const update = <model, action>
-  (model:Model<model, action>,
-   action:Action<model, action>
-  ):Step<model, action> =>
+export const update = <state, message>
+  (model:Model<state, message>,
+   action:Action<state, message>
+  ):Step<state, message> =>
   (action.type === 'Record'
   ? (model.record == null
     ? nofx(model)
@@ -173,10 +173,10 @@ export const update = <model, action>
   : Unknown.update(model, action)
   )
 
-const updateRecord = <model, action>
-  (model:Model<model, action>,
-   action:Record.Action<model, action>
-  ):Step<model, action> => {
+const updateRecord = <state, message>
+  (model:Model<state, message>,
+   action:Record.Action<state, message>
+  ):Step<state, message> => {
   const ignore = [null, Effects.none]
   const [record, fx] =
       (model.record == null
@@ -186,10 +186,10 @@ const updateRecord = <model, action>
   return [merge(model, {record}), fx.map(TagRecord)]
 }
 
-const updateReply = <model, action>
-  (model:Model<model, action>,
-   action:Replay.Action<model, action>
-  ):Step<model, action> => {
+const updateReply = <state, message>
+  (model:Model<state, message>,
+   action:Replay.Action<state, message>
+  ):Step<state, message> => {
   const ignore = [null, Effects.none]
   const [replay, fx] =
       (model.replay == null
@@ -199,10 +199,10 @@ const updateReply = <model, action>
   return [merge(model, {replay}), fx.map(TagReplay)]
 }
 
-const updateLog = <model, action>
-  (model:Model<model, action>,
-   action:Log.Action<model, action>
-  ):Step<model, action> => {
+const updateLog = <state, message>
+  (model:Model<state, message>,
+   action:Log.Action<state, message>
+  ):Step<state, message> => {
   const ignore = [null, Effects.none]
   const [log, fx] =
       (model.log == null
@@ -212,10 +212,10 @@ const updateLog = <model, action>
   return [merge(model, {log}), fx.map(TagLog)]
 }
 
-const updateDebuggee = <model, action>
-  (model:Model<model, action>,
-   action:action
-  ):Step<model, action> => {
+const updateDebuggee = <state, message>
+  (model:Model<state, message>,
+   action:message
+  ):Step<state, message> => {
   const {Debuggee} = model
   const ignore = [null, Effects.none]
 
@@ -261,13 +261,13 @@ const updateDebuggee = <model, action>
   return [next, fx]
 }
 
-const replayDebuggee = <model, action>
-  (model:Model<model, action>, debuggee:model):Step<model, action> =>
+const replayDebuggee = <state, message>
+  (model:Model<state, message>, debuggee:state):Step<state, message> =>
   nofx(merge(model, {debuggee}))
 
-export const render = <model, action>
-  (model:Model<model, action>,
-   address:Address<Action<model, action>>
+export const render = <state, message>
+  (model:Model<state, message>,
+   address:Address<Action<state, message>>
   ):DOM =>
   html.main({ className: 'devtools'
     },
@@ -290,9 +290,9 @@ export const render = <model, action>
     ]
   )
 
-export const view = <model, action>
-  (model:Model<model, action>,
-   address:Address<Action<model, action>>
+export const view = <state, message>
+  (model:Model<state, message>,
+   address:Address<Action<state, message>>
   ):DOM =>
   thunk('Devtools',
    render,

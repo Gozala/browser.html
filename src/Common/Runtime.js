@@ -79,24 +79,24 @@ export const never:Task<Never, any> =
   new Task(succeed => void (0))
 
 export const respond = <message>
-  (message:message):Task<Never, message> =>
+  (value:message):Task<Never, message> =>
   new Task((succeed, fail) =>
     void (Promise
-      .resolve(message)
+      .resolve(value)
       .then(succeed, fail)
     )
   )
 
 export const send = <message>
-  (message:message):Task<Never, void> =>
+  (detail:message):Task<Never, void> =>
   new Task(succeed => {
     if (global.electron != null) {
-      global.electron.ipcRenderer.send('inbox', message)
+      global.electron.ipcRenderer.send('inbox', detail)
     } else {
       window.dispatchEvent(new window.CustomEvent('mozContentEvent', {
         bubbles: true,
         cancelable: false,
-        detail: message
+        detail
       }))
     }
 
@@ -116,7 +116,7 @@ export const receive = <message>
   })
 
 export const request = <request, response>
-  (type:string, message:request):Task<Never, response> =>
+  (address:string, type:string, message:request):Task<Never, response> =>
   send(message)
   .chain(always(receive(type)))
 

@@ -24,7 +24,7 @@ export type Settings =
   { [key:Name]: Value
   }
 
-export type Model = ?Settings
+export type Model = Settings
 
 export type ResultSettings =
   Result<Error, Settings>
@@ -82,7 +82,7 @@ const merges =
 export const fetch =
   (names:Array<Name>):Task<Never, Result<Error, Settings>> => {
     if (navigator.mozSettings != null) {
-      const mozSettings = navigator.mozSettings
+      const mozSettings:any = navigator.mozSettings
       return new Task((succeed, fail) => {
         const lock = mozSettings.createLock()
         const settings = names.map(name => lock.get(name))
@@ -106,7 +106,7 @@ export const fetch =
 export const change =
   (settings:Settings):Task<Never, Result<Error, Settings>> => {
     if (navigator.mozSettings != null) {
-      const {mozSettings} = navigator
+      const mozSettings:any = navigator.mozSettings
       return new Task((succeed, fail) => {
         mozSettings
           .createLock()
@@ -126,7 +126,7 @@ export const change =
 export const observe =
   (namePattern:string):Task<Never, Result<Error, Settings>> => {
   if (navigator.mozSettings != null) {
-    const {mozSettings} = navigator
+    const mozSettings:any = navigator.mozSettings
     return new Task((succeed, fail) => {
       const onChange = change => {
         if (namePattern === '*') {
@@ -160,7 +160,7 @@ export const observe =
 
 export const init =
   (names:Array<Name>):[Model, Effects<Action>] =>
-  [ null,
+  [ {},
    Effects.perform(fetch(names).map(Fetched))
   ]
 

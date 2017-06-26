@@ -66,10 +66,10 @@ export const init = <model, action>
     ]
   )
 
-export const update = <model, action>
-  (model:Model<model, action>,
-   action:Action<model, action>
-  ):Step<model, action> =>
+export const update = <state, message>
+  (model:Model<state, message>,
+   action:Action<state, message>
+  ):Step<state, message> =>
   (action.type === 'NoOp'
   ? nofx(model)
   : action.type === 'PrintSnapshot'
@@ -85,8 +85,8 @@ export const update = <model, action>
   : Unknown.update(model, action)
   )
 
-const createSnapshot = <model, action>
-  (model:Model<model, action>):Task<Error, string> =>
+const createSnapshot = <state, message>
+  (model:Model<state, message>):Task<Error, string> =>
   new Task((succeed, fail) => {
     try {
       succeed(JSON.stringify(window.application.model.value.debuggee))
@@ -95,8 +95,8 @@ const createSnapshot = <model, action>
     }
   })
 
-const printSnapshot = <model, action>
-  (model:Model<model, action>):Step<model, action> =>
+const printSnapshot = <state, message>
+  (model:Model<state, message>):Step<state, message> =>
   [
     merge(model, { status: 'Pending', description: 'Printing...' }),
     Effects.batch([
@@ -112,14 +112,14 @@ const printSnapshot = <model, action>
       )
   ]
 
-const printedSnapshot = <model, action>
-  (model:Model<model, action>):Step<model, action> =>
+const printedSnapshot = <state, message>
+  (model:Model<state, message>):Step<state, message> =>
   [ merge(model, { status: 'Idle', description: '' }),
    Effects.none
   ]
 
-const publishSnapshot = <model, action>
-  (model:Model<model, action>):Step<model, action> =>
+const publishSnapshot = <state, message>
+  (model:Model<state, message>):Step<state, message> =>
   [ merge(model, { status: 'Pending', description: 'Publishing...' }),
    Effects.perform(createSnapshot(model)
       .chain(uploadSnapshot)
@@ -129,10 +129,10 @@ const publishSnapshot = <model, action>
     .map(PublishedSnapshot)
   ]
 
-const publishedSnapshot = <model, action>
-  (model:Model<model, action>,
+const publishedSnapshot = <state, message>
+  (model:Model<state, message>,
    result:Result<Error, Gist>
-  ):Step<model, action> =>
+  ):Step<state, message> =>
   [ merge(model, { status: 'Idle', description: '' }),
    Effects.perform(result.isError
     ? Unknown.error(result.error)
@@ -163,9 +163,9 @@ const uploadSnapshot =
     )
   })
 
-export const render = <model, action>
-  (model:Model<model, action>,
-   address:Address<Action<model, action>>
+export const render = <state, message>
+  (model:Model<state, message>,
+   address:Address<Action<state, message>>
   ):DOM =>
   html.dialog({ id: 'record',
      style: Style.mix(styleSheet.base,
@@ -180,9 +180,9 @@ export const render = <model, action>
     ]
   )
 
-export const view = <model, action>
-  (model:Model<model, action>,
-   address:Address<Action<model, action>>
+export const view = <state, message>
+  (model:Model<state, message>,
+   address:Address<Action<state, message>>
   ):DOM =>
   thunk('record',
    render,

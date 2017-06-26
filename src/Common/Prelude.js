@@ -25,18 +25,18 @@ export type Tagged <tag, kind>
 // the fields of `t` type. In this context this will tell flow to make sure
 // that fields of `patch` are type compatible with a corresponding fields of
 // a `model`.
-export const merge = <model:{}, patch:$Shape<model>>
-  (model:model
+export const merge = <state:{}, patch:$Shape<state>>
+  (model:state
   , changes:patch
-  ):model => {
-  let result = model
+  ):state => {
+  let result:state = model
   for (let key in changes) {
     if (changes.hasOwnProperty(key)) {
       const value = changes[key]
 
       if (model[key] !== value) {
         if (result === model) {
-          result = {}
+          result = ({}:any)
           for (let key in model) {
             if (model.hasOwnProperty(key)) {
               result[key] = model[key]
@@ -53,7 +53,7 @@ export const merge = <model:{}, patch:$Shape<model>>
     }
   }
 
-  // @FlowIssue: Ok just trust me on this!
+
   return result
 }
 
@@ -97,7 +97,7 @@ export const remove = <item>
   : items.slice(0, index).concat(items.slice(index + 1))
   )
 
-export const setIn = <item> (items:Array<item>, index:number, item:item):Array<item> => {
+export const setIn = <a> (items:Array<a>, index:number, item:a):Array<a> => {
   if (items[index] === item) {
     return items
   } else {
@@ -124,22 +124,23 @@ const Null = () => null
 // @FlowIssue: #2071
 const Void = () => void (0)
 
-export const always = <a> (a:a):(...args:Array<any>) => a => {
-  const value = a
+export const always = <a> (value:a):(...args:Array<mixed>) => a => {
   if (value === null) {
     return Null
-  } else if (value === void (0)) {
+  } else if (value === undefined) {
     return Void
-  // @FlowIssue: Frow does not know we can access property on all other types.
-  } else if (value[alwaysSymbol] != null) {
-    return value[alwaysSymbol]
+  } else if (typeof value === "object") {
+    const cached:() => a = (value:Object)[alwaysSymbol]
+    if (cached != null) {
+      return cached
+    } else {
+      const f = () => value
+      f.value = value
+      void ((f:Object).toString = Always.toString)
+      return (value:Object)[alwaysSymbol] = f
+    }
   } else {
-    const f = () => value
-    f.value = value
-    f.toString = Always.toString
-    // @FlowIssue: Flow guards against property assignements on primitives, we know they're ignored and it's fine.
-    value[alwaysSymbol] = f
-    return f
+    return () => value
   }
 }
 
@@ -151,33 +152,30 @@ export const always = <a> (a:a):(...args:Array<any>) => a => {
 // that would mark `model` as mutable / immutable allowing `merge` to mutate
 // in place if `modlel` is "mutable". `batch` here wolud be able to take
 // advantage of these to update same model in place.
-export const batch = <model, action>
-  (update:(m:model, a:action) => [model, Effects<action>]
-  , model:model
-  , actions:Array<action>
-  ):[model, Effects<action>] => {
-  let effects = []
+export const batch = <model, message>
+  (update:(state:model, action:message) => [model, Effects<message>]
+  , state:model
+  , messages:Iterable<message>
+  ):[model, Effects<message>] => {
+  const effects = []
   let index = 0
-  const count = actions.length
-  while (index < count) {
-    const action = actions[index]
-    let [state, fx] = update(model, action)
-    model = state
+  for (let input of messages) {
+    const [next, fx] = update(state, input)
+    state = next
     effects.push(fx)
-    index = index + 1
   }
 
-  return [model, Effects.batch(effects)]
+  return [state, Effects.batch(effects)]
 }
 
 export const tag = <tag:string, kind>
-  (tag:tag):(value:kind) => Tagged<tag, kind> =>
+  (type:tag):(value:kind) => Tagged<tag, kind> =>
   value =>
-  ({ type: tag, source: value })
+  ({ type, source: value })
 
 export const tagged = <tag:string, kind>
-  (tag:tag, value:kind):Tagged<tag, kind> =>
-  ({ type: tag, source: value })
+  (type:tag, value:kind):Tagged<tag, kind> =>
+  ({ type, source: value })
 
 export const mapFX = <model, from, to>
   (f:(input:from) => to
@@ -195,9 +193,9 @@ export const fx = <model, action>
 
 export const appendFX = <model, action>
   (extraFX: Effects<action>
-  , [model, fx]:[model, Effects<action>]
+  , [state, fx]:[model, Effects<action>]
   ):[model, Effects<action>] =>
-  [model, Effects.batch([fx, extraFX])]
+  [state, Effects.batch([fx, extraFX])]
 
 type Port <event, message> =
   (address:Address<message>) =>

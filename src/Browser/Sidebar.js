@@ -11,7 +11,7 @@ import * as Tabs from './Sidebar/Tabs'
 import {nofx} from '../Common/Prelude'
 import {cursor} from '../Common/Cursor'
 import * as Unknown from '../Common/Unknown'
-import * as Easing from 'eased'
+import * as Easing from 'easing.flow'
 import * as Display from './Sidebar/Display'
 import * as Animation from '../Common/Animation'
 
@@ -77,7 +77,7 @@ export const init =
       )
 
     const [toolbar, $toolbar] = Toolbar.init()
-    const [animation, $animation] = Animation.init(display, null)
+    const [animation, $animation] = Animation.init(display)
 
     const model = new Model(isAttached,
      isExpanded,

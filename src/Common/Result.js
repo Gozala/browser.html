@@ -20,16 +20,16 @@ export type Result <error, value>
   = Ok<value>
   | Error<error>
 
-export const ok = <value>
-  (value:value):Ok<value> =>
+export const ok = <a>
+  (value:a):Ok<a> =>
   ({ isOk: true,
      isError: false,
      value
     }
   )
 
-export const error = <error>
-  (error:error):Error<error> =>
+export const error = <x>
+  (error:x):Error<x> =>
   ({ isOk: false,
      isError: true,
      error

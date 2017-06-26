@@ -25,8 +25,8 @@ export const error = <action>
     console.error(...params)
   })
 
-export const update = <model, action>
-  (model:model, action:action):[model, Effects<action>] => {
+export const update = <state, message>
+  (model:state, action:message):[state, Effects<message>] => {
   console.warn('Unknown action was passed & ignored: ', action, Error().stack)
   return [model, Effects.none]
 }

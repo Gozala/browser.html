@@ -21,7 +21,7 @@ import type {Integer} from '../../Common/Prelude'
 export type Model = {
   nextID: Integer,
   active: Integer,
-  order: [Cell.ID],
+  order: Array<Cell.ID>,
   cells: {
     [key: Cell.ID]: Cell.Model
   }

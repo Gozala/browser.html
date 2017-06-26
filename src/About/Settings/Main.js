@@ -5,7 +5,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import 'babel-polyfill'
-import {start, Effects} from 'reflex'
+import {start, Effects, Task} from 'reflex'
 import * as UI from './Settings'
 import {Renderer} from '@driver'
 
@@ -25,11 +25,12 @@ const application = start({
   : UI.init
   ),
   update: UI.update,
-  view: UI.view
+  view: UI.view,
+}, ({view, task}) => {
+  renderer.render(view)
+  Task.perform(task)
 })
+const renderer = new Renderer({target: (document.body:any)})
 
-const renderer = new Renderer({target: document.body})
-application.view.subscribe(renderer.address)
-application.task.subscribe(Effects.driver(application.address))
-
+window.renderer = renderer
 window.application = application

@@ -20,7 +20,7 @@ export type Cursor <outer, inner, tagged, message> =
 export const cursor = <outer, inner, tagged, message>
   ({get, set, update, tag}:Cursor<outer, inner, tagged, message>):AnotateUpdate<outer, tagged, message, *> =>
   (state:outer, action:message):[outer, Effects<tagged>] => {
-    const inner = get(state, action)
+    const inner = get(state)
     const [next, fx] = update(inner, action)
 
     return [set(state, next), fx.map(tag)]

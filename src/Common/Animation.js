@@ -3,14 +3,14 @@
 import * as Unknown from './Unknown'
 import {Task, Effects} from 'reflex'
 import {nofx} from './Prelude'
-import {ease} from 'eased'
+import {ease} from 'easing.flow'
 
 export type Time = number
 export type Action =
   | { type: "Tick", time: Time }
   | { type: "End", time: Time }
 
-import type {Interpolation, Easing} from 'eased'
+import type {Interpolation, Easing} from 'easing.flow'
 
 class Transition <model> {
 
@@ -49,11 +49,11 @@ export class Model <model> {
   }
 }
 
-export const transition = <model>
-  (model:Model<model>,
-   to:model,
+export const transition = <state>
+  (model:Model<state>,
+   to:state,
    duration:Time
-  ):[Model<model>, Effects<Action>] =>
+  ):[Model<state>, Effects<Action>] =>
   (model.transition == null
   ? startTransition(model.state,
      to,
@@ -100,9 +100,9 @@ const startTransition = <model>
    Effects.perform(Task.requestAnimationFrame().map(Tick))
   ]
 
-export const endTransition = <model>
-  (model:Model<model>
-  ):[Model<model>, Effects<Action>] =>
+export const endTransition = <state>
+  (model:Model<state>
+  ):[Model<state>, Effects<Action>] =>
   [ new Model(
       model.state,
       null
@@ -110,12 +110,12 @@ export const endTransition = <model>
     Effects.perform(Task.requestAnimationFrame().map(Tick))
   ]
 
-const tickTransitionWith = <model>
+const tickTransitionWith = <state>
   (easing:Easing,
-   interpolation:Interpolation<model>,
-   model:Model<model>,
+   interpolation:Interpolation<state>,
+   model:Model<state>,
    now/* Time*/
-  ):[Model<model>, Effects<Action>] =>
+  ):[Model<state>, Effects<Action>] =>
   (model.transition == null
   ? nofx(model)
   : interpolateTransitionWith(easing,
@@ -129,13 +129,13 @@ const tickTransitionWith = <model>
     )
   )
 
-const interpolateTransitionWith = <model>
+const interpolateTransitionWith = <state>
   (easing:Easing,
-   interpolation:Interpolation<model>,
-   transition:Transition<model>,
+   interpolation:Interpolation<state>,
+   transition:Transition<state>,
    elapsed:Time,
    now:Time
-  ):[Model<model>, Effects<Action>] =>
+  ):[Model<state>, Effects<Action>] =>
   (elapsed >= transition.duration
   ? [ new Model(transition.to, null),
      Effects.receive(End(now))
@@ -158,12 +158,12 @@ const interpolateTransitionWith = <model>
     ]
   )
 
-export const updateWith = <model>
+export const updateWith = <state>
   (easing:Easing,
-   interpolation:Interpolation<model>,
-   model:Model<model>,
+   interpolation:Interpolation<state>,
+   model:Model<state>,
    action:Action
-  ):[Model<model>, Effects<Action>] => {
+  ):[Model<state>, Effects<Action>] => {
   switch (action.type) {
     case 'Tick':
       return tickTransitionWith(easing, interpolation, model, action.time)
@@ -174,6 +174,6 @@ export const updateWith = <model>
   }
 }
 
-export const init = <model>
-  (state:model):[Model<model>, Effects<Action>] =>
-  nofx(new Model(state, null))
+export const init = <state>
+  (model:state):[Model<state>, Effects<Action>] =>
+  nofx(new Model(model, null))

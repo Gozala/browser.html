@@ -1,6 +1,6 @@
 /* @flow */
 
-import * as Easing from 'eased'
+import * as Easing from 'easing.flow'
 
 import type {Float} from '../../../Common/Prelude'
 

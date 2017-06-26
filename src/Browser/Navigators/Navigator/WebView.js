@@ -347,7 +347,7 @@ const endLoad = (model, time) =>
     ]
   )
 
-const connect = nofx
+const connect = (model, time) => nofx(model)
 
 const changeLocation = (model, uri, canGoBack, canGoForward) =>
   batch(update,

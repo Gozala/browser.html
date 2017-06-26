@@ -15,23 +15,11 @@ import {cursor} from '../Common/Cursor'
 import {Effects, html, thunk, forward} from 'reflex'
 import {Style, StyleSheet} from '../Common/Style'
 
-export type DevtoolsSettings =
-  { 'debugger.remote-mode': 'adb-devtools' | 'disabled',
-   'apz.overscroll.enabled': boolean,
-   'debug.fps.enabled': boolean,
-   'debug.paint-flashing.enabled': boolean,
-   'layers.low-precision': boolean,
-   'layers.low-opacity': boolean,
-   'layers.draw-borders': boolean,
-   'layers.draw-tile-borders': boolean,
-   'layers.dump': boolean,
-   'layers.enable-tiles': boolean,
-   'layers.async-pan-zoom.enabled': boolean
-  }
+export type DevtoolsSettings = Settings.Settings
 
 export type Model =
   { isActive: boolean,
-   settings: ?DevtoolsSettings
+   settings: DevtoolsSettings
   }
 
 export type Action =
@@ -115,8 +103,8 @@ const SettingsAction = action =>
     }
   )
 
-const updateSettings = cursor({ get: model => model.settings,
-     set: (model, settings) => merge(model, {settings}),
+const updateSettings = cursor({ get: (model):DevtoolsSettings => model.settings,
+     set: (model, settings:DevtoolsSettings) => merge(model, {settings}),
      tag: SettingsAction,
      update: Settings.update
     }
@@ -147,8 +135,9 @@ const activate =
 const initSettings =
   model => {
     const [settings, fx] = Settings.init(Object.keys(descriptions))
+    const initialSettings:DevtoolsSettings = settings
     const result =
-      [ merge(model, {settings}),
+      [ merge(model, {settings: initialSettings}),
        fx.map(SettingsAction)
       ]
     return result
@@ -197,7 +186,7 @@ export const init =
   ({isActive}:{isActive:boolean}):[Model, Effects<Action>] => {
     const model =
       { isActive,
-       settings: null
+       settings: {}
       }
 
     const result =

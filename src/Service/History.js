@@ -33,7 +33,7 @@ const pendingRequests = Object.create(null)
 const noMatches = Object.freeze([])
 
 export const query =
-  (query:string):Task<Error, Array<History.Model>> =>
+  (query:string, limit:number):Task<Error, Array<History.Model>> =>
   new Task((succeed, fail) => {
     pendingRequests[query] = true
   })

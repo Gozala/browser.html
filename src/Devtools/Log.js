@@ -34,10 +34,10 @@ export const init = <model, action, flags> // eslint-disable-line no-unused-vars
     ]
   )
 
-export const update = <model, action>
-  (model:Model<model, action>,
-   action:Action<model, action>
-  ):Step<model, action> =>
+export const update = <state, message>
+  (model:Model<state, message>,
+   action:Action<state, message>
+  ):Step<state, message> =>
   (action.type === 'NoOp'
   ? nofx(model)
   : action.type === 'Debuggee'
@@ -45,10 +45,10 @@ export const update = <model, action>
   : Unknown.update(model, action)
   )
 
-const log = <model, action>
-  (model:Model<model, action>,
-   action:action
-  ):Step<model, action> => {
+const log = <state, message>
+  (model:Model<state, message>,
+   action:message
+  ):Step<state, message> => {
   (model.mode === 'raw'
     ? console.log('Action >>', action)
     : model.mode === 'json'
@@ -59,8 +59,8 @@ const log = <model, action>
   return nofx(model)
 }
 
-export const view = <model, action>
-  (model:Model<model, action>,
-   address:Address<Action<model, action>>
+export const view = <state, message>
+  (model:Model<state, message>,
+   address:Address<Action<state, message>>
   ):DOM =>
   html.noscript()

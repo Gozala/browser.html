@@ -6,18 +6,13 @@
 
 import 'babel-polyfill'
 import './Common/RequestAnimationFrame'
-import {start, Effects} from 'reflex'
+import {start, Task} from 'reflex'
 import * as UI from './Browser'
 import * as Runtime from './Common/Runtime'
 import {Renderer} from '@driver'
 import * as Devtools from './Devtools'
 
 const isReload = window.application != null
-console.timeStamp =
-  (console.timeStamp == null
-  ? console.log
-  : console.timeStamp
-  )
 
 // If hotswap change address so it points to a new mailbox &r
 // re-render.
@@ -25,8 +20,9 @@ if (isReload) {
   window.application.address(Devtools.Persist)
 }
 
-document.body.classList.toggle('use-native-titlebar',
-                               Runtime.useNativeTitlebar())
+void ((document.body:any):HTMLElement)
+  .classList
+  .toggle('use-native-titlebar', Runtime.useNativeTitlebar())
 
 const application = start({ flags:
       { Debuggee: UI,
@@ -39,14 +35,12 @@ const application = start({ flags:
       ),
 
      update: Devtools.update,
-     view: Devtools.view
-    }
-  )
+     view: Devtools.view,
+}, ({view, task}) => {
+  renderer.render(view)
+  Task.perform(task)
+})
+const renderer = new Renderer({target: (document.body:any)})
 
-const renderer = new Renderer({target: document.body})
-
-application.view.subscribe(renderer.address)
-application.task.subscribe(Effects.driver(application.address))
-
-window.application = application
 window.renderer = renderer
+window.application = application
