@@ -24,6 +24,7 @@ void ((document.body:any):HTMLElement)
   .classList
   .toggle('use-native-titlebar', Runtime.useNativeTitlebar())
 
+const renderer = new Renderer({target: (document.body:any)})
 const application = start({ flags:
       { Debuggee: UI,
        flags: void (0)
@@ -40,7 +41,6 @@ const application = start({ flags:
   renderer.render(view)
   Task.perform(task)
 })
-const renderer = new Renderer({target: (document.body:any)})
 
 window.renderer = renderer
 window.application = application

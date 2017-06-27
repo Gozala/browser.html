@@ -9,16 +9,16 @@ import { start, Task, Subscription } from 'reflex'
 import * as NewTab from './Newtab'
 import { Renderer } from '@driver'
 
+const renderer = new Renderer({target: (document.body:any)})
 const application = start({
   flags: void (0),
   init: NewTab.init,
   update: NewTab.update,
   view: NewTab.view
 }, ({view, task}) => {
-  renderer.address(view)
+  renderer.render(view)
   Task.perform(task)
 })
-const renderer = new Renderer({target: (document.body:any)})
 
 window.renderer = renderer
 window.application = application

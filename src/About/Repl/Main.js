@@ -16,6 +16,7 @@ const restore = () => [
   Effects.none
 ]
 
+const renderer = new Renderer({target: (document.body:any)})
 const application = start({
   flags: void (0),
   init: (
@@ -27,7 +28,6 @@ const application = start({
   renderer.render(view)
   Task.perform(task)
 })
-const renderer = new Renderer({target: (document.body:any)})
 
 window.renderer = renderer
 window.application = application
